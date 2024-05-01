@@ -1,5 +1,5 @@
 import numpy as np
-from oniakHash import ohash
+import ohash
 import random
 from enum import Enum
 
