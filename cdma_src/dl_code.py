@@ -3,7 +3,7 @@ from oniakHash import ohash
 import random
 from enum import Enum
 
-random.seed(3000750715)
+# random.seed(3000750715)
 
 # forward means adding elements in A to C
 # backward means removing elements from C
@@ -21,6 +21,7 @@ class DLCode:
         self.array = np.zeros(size, dtype=np.int8)
         # code in array = encode(setD) - encode(setE)
         self.setD = set()
+        self.setD_ori = set()
         self.setE = set()
         # k hash functions that maps elements into array
         self.hashfunc = [ohash.WYHash(random.randint(0, 0xffffffff), 2 * size) for _ in range(k)]
@@ -30,10 +31,19 @@ class DLCode:
         self.num_correct_peels = 0
         self.k = k
 
+    def reset(self):
+        self.array = np.zeros(len(self.array), dtype=np.int8)
+        self.setD = set()
+        self.setE = set()
+        self.num_peels = 0
+        self.num_correct_peels = 0
+        self.encode(self.setD_ori)
+
     # D = A \ B
     def encode(self, setD: set):
         assert self.setD == set()
         self.setD = setD
+        self.setD_ori = setD.copy()
 
         for element in setD:
             for i in range(self.k):
@@ -83,3 +93,4 @@ class DLCode:
         print("Number of wrong peels: ", self.num_peels - self.num_correct_peels)
         print("Number of elements in D: ", len(self.setD))
         print("Number of elements in E: ", len(self.setE))
+

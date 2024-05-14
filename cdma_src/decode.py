@@ -79,11 +79,48 @@ class DLCDecoder:
             elif self.controller.peeling_direction == PeelingDirection.end:
                  break
             
-            self.controller.update(self.code)
             self.code.show_result()
+
+    def decode2(self, code : DLCode, setA : set, t0, tk, max_rounds=100, verbose=False):
+        self.code = code
+        self.setA = setA
+
+        for rnd in range(max_rounds):
+            # Elements in A \ C are positive, elements in C are negative
+            signals = [(self.code.sense(element), element) for element in self.setA - self.setC]
+            signals.extend([(-self.code.sense(element), -element) for element in self.setC])
+            
+            # sort from strong signals to weak ones
+            signals.sort(reverse=True)
+            # threshold is the tk-th strongest signal
+            threshold = signals[tk][0]
+            if threshold < t0:
+                threshold = t0   # lower bound at t0
+            
+            finished = True
+            for value, element in signals:
+                if value < threshold:
+                    break
+                finished = False
+                if element < 0:
+                    self.code.peel(-element, PeelingDirection.backward)
+                    self.setC.remove(-element)
+                else:
+                    self.code.peel(element, PeelingDirection.forward)
+                    self.setC.add(element)
+                
+            if finished:
+                break
+            
+            if verbose:
+                print("Threshold: ", threshold)
+                print("Round: ", rnd)
+                self.code.show_result()
+
+        return rnd
                  
     def forward_peel(self):
-        signals = [(self.code.sense(element), element) for element in self.setA]
+        signals = [(self.code.sense(element), element) for element in self.setA - self.setC]
         signals.sort(reverse=True)
         for _, element in signals:
             self.code.peel(element, PeelingDirection.forward)

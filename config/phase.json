@@ -1,0 +1,12 @@
+{
+  "script": ["python3", "ROOT/cdma_exp.py", "JSON"],
+  "root path": "/media/mydrive/CDMA",
+  "max process": 32,
+  "universe": 100000,
+  "A size": 100000,
+  "B size": 99000,
+  "k": ["ITER_RANGE", 4, 17],
+  "d": ["ITER_RANGE", 6000, 8001, 100],
+  "id": ["ITER_RANGE", 0, 1000],
+  "result filename": "result/phase/k{k}_d{d}_id{id}.json"
+}
