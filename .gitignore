@@ -4,3 +4,5 @@ result
 /.ipynb_checkpoints
 *.pyc
 .DS_Store
+*.odat
+*.pdf

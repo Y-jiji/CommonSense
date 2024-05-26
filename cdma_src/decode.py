@@ -81,9 +81,11 @@ class DLCDecoder:
             
             self.code.show_result()
 
-    def decode2(self, code : DLCode, setA : set, t0, tk, max_rounds=100, verbose=False):
+    def decode2(self, code : DLCode, setA : set, t0, tk, ta=5, max_rounds=100, verbose=False, stats = None):
         self.code = code
         self.setA = setA
+        # terminates decoding if an element is added and removed for multiple times
+        thrashing = {}
 
         for rnd in range(max_rounds):
             # Elements in A \ C are positive, elements in C are negative
@@ -102,12 +104,18 @@ class DLCDecoder:
                 if value < threshold:
                     break
                 finished = False
+                element_id = abs(element)
                 if element < 0:
-                    self.code.peel(-element, PeelingDirection.backward)
-                    self.setC.remove(-element)
+                    self.code.peel(element_id, PeelingDirection.backward)
+                    self.setC.remove(element_id)
                 else:
-                    self.code.peel(element, PeelingDirection.forward)
-                    self.setC.add(element)
+                    self.code.peel(element_id, PeelingDirection.forward)
+                    self.setC.add(element_id)
+
+                thrashing[element_id] = thrashing.get(element_id, 0) + 1
+                if thrashing[element_id] > ta:
+                    finished = True
+                    break
                 
             if finished:
                 break
@@ -117,6 +125,8 @@ class DLCDecoder:
                 print("Round: ", rnd)
                 self.code.show_result()
 
+        if stats is not None:
+            stats["signals"] = signals
         return rnd
                  
     def forward_peel(self):

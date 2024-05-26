@@ -17,19 +17,23 @@ class DLCode:
         end = "end"
 
     # initialize an empty code
-    def __init__(self, size, k):
+    # if count_min is True, then all signs are 1
+    def __init__(self, size, k, seeds = None, count_min = False):
         self.array = np.zeros(size, dtype=np.int8)
         # code in array = encode(setD) - encode(setE)
         self.setD = set()
         self.setD_ori = set()
         self.setE = set()
+        if seeds is None:
+            seeds = [random.randint(0, 0xffffffff) for _ in range(k)]
         # k hash functions that maps elements into array
-        self.hashfunc = [ohash.WYHash(random.randint(0, 0xffffffff), 2 * size) for _ in range(k)]
+        self.hashfunc = [ohash.WYHash(seeds[i], 2 * size) for i in range(k)]
 
         # summaries of peeling results
         self.num_peels = 0
         self.num_correct_peels = 0
         self.k = k
+        self.count_min = count_min
 
     def reset(self):
         self.array = np.zeros(len(self.array), dtype=np.int8)
@@ -52,7 +56,7 @@ class DLCode:
 
     def hash(self, i, element):
         index = self.hashfunc[i].hash(element)
-        sign = 1 if index >= len(self.array) else -1
+        sign = 1 if self.count_min or index >= len(self.array) else -1
         index = index % len(self.array)
         return index, sign
 
