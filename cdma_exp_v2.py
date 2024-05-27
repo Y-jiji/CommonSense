@@ -37,6 +37,7 @@ random.shuffle(listU)
 setA = set(listU[:a_size])
 b_end = a_minus_b_size + b_size
 setB = set(listU[a_minus_b_size:b_end])
+setA_minus_B = set(listU[:a_minus_b_size])
 assert b_end >= a_size
 b_minus_a_size = b_end - a_size 
 
@@ -50,14 +51,23 @@ start = time.time()
 num_rounds = decoder.decode2(code, setA, t0=t0, tk=tk, max_rounds=max_rounds, stats=stats)
 end = time.time()
 
+d_sizes = [len(code.setD) - b_minus_a_size]
+e_sizes = [len(code.setE)]
+
+if "signals" in stats.keys():
+    for sg in range(k, 0, -1):
+        sig_set = set(abs(x[1]) for x in stats["signals"] if x[0] >= sg)
+        d_sizes.append(len(code.setD - sig_set) - b_minus_a_size)
+        e_sizes.append(len(code.setE.union(sig_set) - setA_minus_B))
+
 result = {}
 result["time"] = end - start
 result["success"] = len(code.setD) + len(code.setE) == 0
 result["num peels"] = code.num_peels
 result["num correct peels"] = code.num_correct_peels
 result["num rounds"] = num_rounds
-result["final D size"] = len(code.setD) - b_minus_a_size
-result["final E size"] = len(code.setE)
+result["final D size"] = d_sizes
+result["final E size"] = e_sizes
 
 with open(save_path, "w") as f:
     json.dump(result, f, indent=4)

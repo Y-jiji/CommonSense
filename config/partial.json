@@ -6,9 +6,9 @@
   "A size": 20000,
   "B size": 20000,
   "A minus B size": 100,
-  "k": ["ITER_ALL", 8],
-  "d": ["ITER_RANGE", 2000, 2001],
-  "id": ["ITER_RANGE", 0, 1],
+  "k": ["ITER_ALL", 8, 10, 12, 14],
+  "d": ["ITER_RANGE", 2000, 3001, 20],
+  "id": ["ITER_RANGE", 0, 1000],
   "tk": 10,
   "countmin": ["ITER_ALL", true, false],
   "result filename": "result/partial/cm{countmin}_k{k}_d{d}_id{id}.json"
