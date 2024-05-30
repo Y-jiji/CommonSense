@@ -9,63 +9,86 @@ class DoroDecoder:
         # the running result of the decoder
         self.result = {}
 
+    """ current element value + delta = new element value"""
+
+    def get_delta(self, delta, value, value_range):
+        new_value = value + delta
+        if isinstance(value_range, tuple):
+            new_value = max(
+                value_range[0], new_value
+            )  # if new value is smaller than lower bound, set to lower bound
+            new_value = min(
+                value_range[1], new_value
+            )  # if new value is larger than upper bound, set to upper bound
+        # if value_range is a set, set value to the closest one in the set
+        elif isinstance(value_range, set):
+            distances = [(abs(new_value - d), d) for d in value_range]
+            new_value = min(distances)[1]
+        return new_value - value
+
     def decode(
         self,
         code: Doro,
         setA: set,
-        t0,
         tk,
-        delta_range=None,
+        t0=None,
+        value_range=None,
         ta=5,
         max_rounds=100,
         verbose=False,
         stats=None,
     ):
+        if t0 is None:
+            t0 = code.k // 2 + 1
         self.code = code
         self.setA = setA
-        # terminates decoding if an element is added and removed for multiple times
         thrashing = {}
 
         for rnd in range(max_rounds):
-            signals = [(self.code.sense(element), element) for element in self.setA]
+            # sensing stage
+            signals = []
+            for element in self.setA:
+                power = self.code.sense(element)
+                cur_element_value = self.result.get(element, 0)
+                delta = self.get_delta(power, cur_element_value, value_range)
+                if delta > 1e-6:
+                    signals.append((thrashing.get(element, 0), power, delta, element))
 
             # sort from strong signals to weak ones by absolute value
-            signals.sort(reverse=True, key=lambda x: abs(x[0]))
-            # threshold is the tk-th strongest signal
-            threshold = signals[tk][0]
-            # normally t0 is at least k/2, since otherwise
-            # peeling only makes the signal stronger
-            if threshold < t0:
-                threshold = t0  # lower bound at t0
+            signals.sort(key=lambda x: (-abs(x[1]), x[0]))
+            signals = signals[:tk]
+            signals = [
+                (thrash, power, delta, element)
+                for thrash, power, delta, element in signals
+                if abs(power) >= t0
+            ]
 
-            finished = True
-            for value, element in signals:
-                if value < threshold:
-                    break
-                finished = False
-                element_id = abs(element)
-                delta = value / code.k
-                if delta_range is not None:
-                    delta = max(
-                        delta_range[0], delta
-                    )  # if delta is smaller than lower bound, set to lower bound
-                    delta = min(
-                        delta_range[1], delta
-                    )  # if delta is larger than upper bound, set to upper bound
+            if len(signals) == 0:
+                break
+            min_thrash = min([thrash for thrash, _, _, _ in signals])
+            signals2 = [x for x in signals if x[0] <= min_thrash + 2 and abs(x[1]) > t0]
+            if len(signals2) > 0:
+                signals = signals2
 
+            i = 0
+            finished = False
+            for thrash, power, delta, element in signals:
+                if verbose:
+                    print(thrash, power, element, cur_element_value, delta)
                 self.code.peel(element, delta)
-                self.result[element_id] = self.result.get(element_id, 0) + delta
+                self.result[element] = cur_element_value + delta
+                i += 1
 
-                thrashing[element] = thrashing.get(element, 0) + 1
+                thrashing[element] = thrash + 1
                 if thrashing[element] > ta:
                     finished = True
                     break
-
+            i = min(i, len(signals))
+            signals = signals[i:]
             if finished:
                 break
 
             if verbose:
-                print("Threshold: ", threshold)
                 print("Round: ", rnd)
                 self.code.show_result()
 

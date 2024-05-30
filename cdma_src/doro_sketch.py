@@ -4,15 +4,17 @@
 import numpy as np
 from oniakHash import ohash
 import random
-
+from typing import Union
 # random.seed(3000750715)
 
 
 class Doro:
+    hashfunc: list[ohash.WYHash]
+    value: dict
     # initialize an empty code
     # By default, counters are int8 types, so values interted must be integers.
-    # if count_min is True, then all signs are 1
-    def __init__(self, size, k, seeds=None, count_min=False):
+    # if counting is True, then all signs are 1
+    def __init__(self, size, k, seeds=None, counting=False):
         self.array = np.zeros(size, dtype=np.int8)
         # value is stored in a dictionary
         self.value = {}
@@ -26,7 +28,7 @@ class Doro:
         self.num_peels = 0
         self.num_correct_peels = 0
         self.k = k
-        self.count_min = count_min
+        self.counting = counting
 
     def reset(self):
         self.array = np.zeros(len(self.array), dtype=np.int8)
@@ -35,7 +37,7 @@ class Doro:
         self.num_correct_peels = 0
         self.encode(self.setD_ori)
 
-    def encode(self, kvpairs: dict | set):
+    def encode(self, kvpairs: Union[dict , set]):
         assert self.value == {}
         self.value = kvpairs
         self.setD_ori = kvpairs.copy()
@@ -53,7 +55,7 @@ class Doro:
 
     def hash(self, i, element):
         index = self.hashfunc[i].hash(element)
-        sign = 1 if self.count_min or index >= len(self.array) else -1
+        sign = 1 if self.counting or index >= len(self.array) else -1
         index = index % len(self.array)
         return index, sign
 
@@ -80,10 +82,16 @@ class Doro:
             signal[index] = sign
         return np.inner(self.array, signal)
 
+    def nonzero_num(self, values : dict):
+        return sum(1 for x in values.items() if abs(x[1]) > 1e-6)
+    def mae(self, values : dict):
+        return sum(abs(x[1]) for x in values.items())
+
+
     # print result summary
     def show_result(self):
         print("Number of peels: ", self.num_peels)
         print("Number of correct peels: ", self.num_correct_peels)
         print("Number of wrong peels: ", self.num_peels - self.num_correct_peels)
-        print("Size of nonzero indices:", len(self.value))
-        print("L1 Norm of indices", sum(abs(x[1]) for x in self.value.items()))
+        print("Size of nonzero indices:", self.nonzero_num(self.value))
+        print("L1 Norm of indices", self.mae(self.value))

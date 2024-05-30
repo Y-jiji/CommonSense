@@ -1,4 +1,15 @@
 {
-    "python.defaultInterpreterPath": "python3",
-    "python.languageServer": "Pylance"
+  "python.defaultInterpreterPath": "python3",
+  "python.languageServer": "Pylance",
+  "files.exclude": {
+    "result": true
+  },
+  "files.watcherExclude": {
+    "result": true
+  },
+  "search.exclude": {
+    "result": true
+  },
+  "workbench.editor.limit.excludeDirty": false,
+  "explorer.excludeGitIgnore": false
 }
