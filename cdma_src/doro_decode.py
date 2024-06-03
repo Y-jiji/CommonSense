@@ -24,6 +24,14 @@ class DoroDecoder:
         elif isinstance(value_range, set):
             distances = [(abs(new_value - d), d) for d in value_range]
             new_value = min(distances)[1]
+            if new_value < -2:
+                print(distances)
+        else:
+            raise ValueError
+        
+        result = new_value - value
+        # if result <= -2:
+        #         print(distances, new_value, value)
         return new_value - value
 
     def decode(
@@ -50,29 +58,29 @@ class DoroDecoder:
             for element in self.setA:
                 power = self.code.sense(element)
                 cur_element_value = self.result.get(element, 0)
-                delta = self.get_delta(power, cur_element_value, value_range)
-                if delta > 1e-6:
-                    signals.append((thrashing.get(element, 0), power, delta, element))
+                delta = self.get_delta(power / code.k, cur_element_value, value_range)
+                if abs(delta) > 1e-6:
+                    signals.append((thrashing.get(element, 0), power, delta, cur_element_value, element))
 
             # sort from strong signals to weak ones by absolute value
-            signals.sort(key=lambda x: (-abs(x[1]), x[0]))
+            signals.sort(key=lambda x: (-abs(x[1]), x[0], x[-1]))
             signals = signals[:tk]
             signals = [
-                (thrash, power, delta, element)
-                for thrash, power, delta, element in signals
+                (thrash, power, delta, cur_value, element)
+                for thrash, power, delta, cur_value, element in signals
                 if abs(power) >= t0
             ]
 
             if len(signals) == 0:
                 break
-            min_thrash = min([thrash for thrash, _, _, _ in signals])
-            signals2 = [x for x in signals if x[0] <= min_thrash + 2 and abs(x[1]) > t0]
+            min_thrash = min([thrash for thrash, _, _, _, _ in signals])
+            signals2 = [x for x in signals if abs(x[1]) > t0 and x[0] < min_thrash + 2]
             if len(signals2) > 0:
                 signals = signals2
 
             i = 0
             finished = False
-            for thrash, power, delta, element in signals:
+            for thrash, power, delta, cur_element_value, element in signals:
                 if verbose:
                     print(thrash, power, element, cur_element_value, delta)
                 self.code.peel(element, delta)

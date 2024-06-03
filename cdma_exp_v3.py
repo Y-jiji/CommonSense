@@ -22,7 +22,7 @@ save_path = config["result filename"]
 max_rounds = config.get("max rounds", 100)
 counting = config.get("counting", False)
 sg_step = config.get("signal step", 1)
-value_range = set([-1, 0, 1])
+value_range = {-1, 0, 1}
 
 if os.path.exists(save_path):
     print("File already exists")
@@ -56,30 +56,17 @@ num_rounds = decoder.decode(
     max_rounds=max_rounds,
     stats=stats,
     value_range=value_range,
-    verbose=True,
 )
 end = time.time()
 
-nonzeroes = [code.nonzero_num(code.value)]
-maes = [code.mae(code.value)]
+nonzeroes = code.nonzero_num(code.value)
+maes = code.mae(code.value)
 
 cur_sg = k
-if "signals" in stats.keys():
-    value = code.value.copy()
-    for x in stats["signals"]:
-        cur_value = value.get(x[1], 0)
-        value[x[1]] = cur_value - decoder.get_delta(
-            x[0] / code.k, cur_value, value_range
-        )
-        if abs(x[0]) < cur_sg:
-            cur_sg -= sg_step
-            nonzeroes.append(code.nonzero_num(value))
-            maes.append(code.mae(value))
-
 
 result = {}
 result["time"] = end - start
-result["success"] = nonzeroes[0] == 0
+result["success"] = nonzeroes == 0
 result["num peels"] = code.num_peels
 result["num correct peels"] = code.num_correct_peels
 result["num rounds"] = num_rounds

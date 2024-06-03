@@ -1,5 +1,5 @@
 {
-  "script": ["python3", "ROOT/cdma_exp_v4.py", "JSON"],
+  "script": ["python3", "ROOT/cdma_exp_v3.py", "JSON"],
   "root path": "/media/mydrive/CDMA",
   "max process": 34,
   "universe": 1000000,
@@ -7,11 +7,11 @@
   "B size": 20000,
   "A minus B size": 100,
   "k": ["ITER_ALL", 8],
-  "d": ["ITER_RANGE", 1600, 1601, 20],
+  "d": ["ITER_RANGE", 1800, 1801, 20],
   "id": ["ITER_RANGE", 0, 1],
   "tk": 20,
   "max rounds": 100,
   "counting": ["ITER_ALL", true, false],
-  "t0": ["ITER_WITH", "counting", {"True": 2, "False": 5}],
-  "result filename": "result/pm/cm{counting}_k{k}_d{d}_id{id}.json"
+  "number of experiments": "2 * 1000 * 80 * 4",
+  "result filename": "result/revisit/cm{counting}_k{k}_d{d}_id{id}.json"
 }
