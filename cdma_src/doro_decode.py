@@ -20,6 +20,7 @@ class DoroDecoder:
             new_value = min(
                 value_range[1], new_value
             )  # if new value is larger than upper bound, set to upper bound
+            new_value = round(new_value)
         # if value_range is a set, set value to the closest one in the set
         elif isinstance(value_range, set):
             distances = [(abs(new_value - d), d) for d in value_range]
@@ -64,12 +65,14 @@ class DoroDecoder:
 
             # sort from strong signals to weak ones by absolute value
             signals.sort(key=lambda x: (-abs(x[1]), x[0], x[-1]))
-            signals = signals[:tk]
             signals = [
                 (thrash, power, delta, cur_value, element)
                 for thrash, power, delta, cur_value, element in signals
                 if abs(power) >= t0
             ]
+            siglen = len(signals)
+            if siglen > tk:
+                signals = signals[:tk]
 
             if len(signals) == 0:
                 break
@@ -88,7 +91,7 @@ class DoroDecoder:
                 i += 1
 
                 thrashing[element] = thrash + 1
-                if thrashing[element] > ta:
+                if thrashing[element] > ta and siglen > len(code.array) // 16:
                     finished = True
                     break
             i = min(i, len(signals))

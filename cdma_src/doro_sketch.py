@@ -14,8 +14,8 @@ class Doro:
     # initialize an empty code
     # By default, counters are int8 types, so values interted must be integers.
     # if counting is True, then all signs are 1
-    def __init__(self, size, k, seeds=None, counting=False):
-        self.array = np.zeros(size, dtype=np.int8)
+    def __init__(self, size, k, seeds=None, counting=False, dtype=np.int8):
+        self.array = np.zeros(size, dtype)
         # value is stored in a dictionary
         self.value = {}
         self.value_ori = {}
