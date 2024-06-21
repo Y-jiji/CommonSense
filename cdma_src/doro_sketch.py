@@ -35,12 +35,12 @@ class Doro:
         self.value = {}
         self.num_peels = 0
         self.num_correct_peels = 0
-        self.encode(self.setD_ori)
+        self.encode(self.value_ori)
 
     def encode(self, kvpairs: Union[dict , set]):
         assert self.value == {}
         self.value = kvpairs
-        self.setD_ori = kvpairs.copy()
+        self.value_ori = kvpairs.copy()
 
         if isinstance(kvpairs, set):
             for element in kvpairs:

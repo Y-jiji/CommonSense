@@ -9,7 +9,7 @@
   "A minus B size": 1000,
   "k": ["ITER_ALL", 8, 12, 16],
   "d": ["ITER_RANGE", 9000, 6000, -100],
-  "id": ["ITER_RANGE", 0, 1000],
+  "id": ["ITER_RANGE", 1, 1000],
   "tk": 100,
   "max rounds": 1000,
   "counting": ["ITER_ALL", true, false],

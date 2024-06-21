@@ -91,7 +91,7 @@ class DoroDecoder:
                 i += 1
 
                 thrashing[element] = thrash + 1
-                if thrashing[element] > ta and siglen > len(code.array) // 16:
+                if thrashing[element] > ta : # and siglen > len(code.array) // 16:
                     finished = True
                     break
             i = min(i, len(signals))

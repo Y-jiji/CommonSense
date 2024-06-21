@@ -7,3 +7,5 @@ result
 *.odat
 *.pdf
 plots
+build
+debug
