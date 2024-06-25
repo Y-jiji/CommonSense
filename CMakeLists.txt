@@ -14,3 +14,6 @@ find_package(libONIAK REQUIRED)
 
 add_executable(doro_exp "src/doro_exp.cpp")
 target_link_libraries(doro_exp PRIVATE ONIAK::libONIAK)
+
+add_executable(performance "src/performance.cpp")
+target_link_libraries(performance PRIVATE ONIAK::libONIAK)

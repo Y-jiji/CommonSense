@@ -11,5 +11,21 @@
     "result": true
   },
   "workbench.editor.limit.excludeDirty": false,
-  "explorer.excludeGitIgnore": false
+  "explorer.excludeGitIgnore": false,
+  "C_Cpp.default.compilerPath": "/usr/bin/g++-13",
+  "C_Cpp.vcFormat.newLine.beforeElse": false,
+  "C_Cpp.vcFormat.newLine.beforeOpenBrace.block": "sameLine",
+  "C_Cpp.vcFormat.newLine.beforeOpenBrace.function": "sameLine",
+  "C_Cpp.vcFormat.newLine.beforeOpenBrace.lambda": "sameLine",
+  "C_Cpp.vcFormat.newLine.beforeOpenBrace.namespace": "sameLine",
+  "C_Cpp.vcFormat.newLine.beforeOpenBrace.type": "sameLine",
+  "files.associations": {
+    "svd": "cpp",
+    "*.inc": "cpp",
+    "*.tcc": "cpp",
+    "random": "cpp",
+    "iosfwd": "cpp",
+    "functional": "cpp",
+    "valarray": "cpp"
+  }
 }

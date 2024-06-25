@@ -45,6 +45,7 @@ namespace Doro
           auto [index, sign] = hash(i, x);
           arr_[index] += sign * val;
         }
+        values_[x] = val;
       }
     }
 
@@ -94,9 +95,20 @@ namespace Doro
       {
         auto med_iter2 = med_iter - 1;
         std::nth_element(signals.begin(), med_iter2, med_iter);
-        if (std::abs(*med_iter) > std::abs(*med_iter2))
+        if (*med_iter * (*med_iter2) < 0)
+          return 0;
+        else if (std::abs(*med_iter) > std::abs(*med_iter2))
           return *med_iter2;
       }
+      // if (*med_iter != 0) {
+      //   std::cout << "Signals: " << element << " ";
+      //   int sum = 0;
+      //   for (auto signal : signals) {
+      //     std::cout << signal << " ";
+      //     sum += signal;
+      //   }
+      //   std::cout << "\t" << *med_iter << "\t" << sum << std::endl;
+      // }
       return *med_iter;
     }
 
@@ -127,6 +139,7 @@ namespace Doro
     }
 
     int k() const { return k_; }
+    int num_peels() const { return num_peels_; }
 
     void show_result() const
     {
@@ -137,7 +150,6 @@ namespace Doro
       std::cout << "L1 Norm of indices: " << mae() << std::endl;
     }
 
-  private:
     std::pair<IndexType, int> hash(int i, IndexType x) const
     {
       int hash_value = hash_funcs_[i].hash_in_range(x);
@@ -146,6 +158,7 @@ namespace Doro
       return {idx, sign};
     }
 
+  private:
     std::vector<ArrType> arr_;
     SparseVector values_, ground_truth_;
 
