@@ -1,8 +1,10 @@
 #include "doro.hpp"
 #include "decoder.hpp"
+#include "probability.hpp"
 
 #include "oniakRandom/orand.h"
 #include "oniakTimer/otime.h"
+#include "nlohmann/json.hpp"
 
 #include <format>
 #include <iostream>
@@ -14,9 +16,17 @@
 using namespace std;
 using namespace Doro;
 using namespace ONIAK;
+using namespace nlohmann;
+
 int main()
 {
   mt19937 rng(0);
+
+  Skellam skellam = create_corrected_skellam(1, 1000);
+  Poisson poisson(1);
+  std:: cout << "Skellam: " << entropy(skellam.pmf_map()) << std::endl;
+  std:: cout << "Poisson: " << entropy(poisson.pmf_map()) << std::endl;
+
   DoroCode doro(10000, 8, false, rng);
   auto rand_vec = random_nonrepetitive<int, mt19937>(10000000, 1000000, rng);
   std::shuffle(rand_vec.begin(), rand_vec.end(), rng);
@@ -31,18 +41,6 @@ int main()
   DecodeConfig config = {/*tk*/ 5, /*max_round*/ 100, /*ta*/ 10000, /*verbose*/ true, /*debug*/ false, /*lb*/ 0, /*ub*/ 1,
                                               PursuitChoice::L2};
   StopWatch sw; 
-  // decoder.stage_decode(&doro, rand_vec, &config, result);
-  // cout << format("Time: {}\n", sw.peek());
-  // cout << format("Nonzero: {}\n MAE: {}\n", doro.nonzero_num(), doro.mae());
-  // doro.reset();
-  sw.reset_and_start();
-  decoder.decode(&doro, rand_vec, &config, result);
-  cout << format("Time: {}\n", sw.peek());
-  cout << format("Nonzero: {}\n MAE: {}\n", doro.nonzero_num(), doro.mae());
-  doro.reset();
-  sw.reset_and_start();
-  decoder.decode2(&doro, rand_vec, &config, result);
-  cout << format("Time: {}\n", sw.peek());
-  cout << format("Nonzero: {}\n MAE: {}\n", doro.nonzero_num(), doro.mae());
+
   return 0;
 }
