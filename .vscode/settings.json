@@ -20,12 +20,14 @@
   "C_Cpp.vcFormat.newLine.beforeOpenBrace.namespace": "sameLine",
   "C_Cpp.vcFormat.newLine.beforeOpenBrace.type": "sameLine",
   "files.associations": {
+    "*.txt": "makefile",
     "svd": "cpp",
     "*.inc": "cpp",
     "*.tcc": "cpp",
     "random": "cpp",
     "iosfwd": "cpp",
     "functional": "cpp",
-    "valarray": "cpp"
+    "valarray": "cpp",
+    "iostream": "cpp"
   }
 }

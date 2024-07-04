@@ -20,7 +20,7 @@ int main()
   DoroCode doro(70000, 8, false, rng);
   auto rand_vec = random_nonrepetitive<int, mt19937>(10000000, 1000000, rng);
   std::shuffle(rand_vec.begin(), rand_vec.end(), rng);
-  unordered_map<int, int> ground_truth, result;
+  unordered_map<int, int> ground_truth, *result;
   for (int i : rand_vec | views::take(10000))
   {
     ground_truth[i] = 1;
@@ -75,6 +75,8 @@ Nonzero: 0
  MAE: 0
 Time: 11.636769064
 Nonzero: 0
+
+
  MAE: 0
 Time: 13.661667001
 Nonzero: 0

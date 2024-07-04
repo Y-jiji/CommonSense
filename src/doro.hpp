@@ -13,161 +13,145 @@
 #include <unordered_map>
 #include <vector>
 
-namespace Doro
-{
-  template <typename ArrType = int32_t>
-  class DoroCode
-  {
-  public:
-    using IndexType = int;
-    using SparseVector = std::unordered_map<IndexType, ArrType>;
-    using PairType = std::pair<IndexType, ArrType>;
+namespace Doro {
+template <typename ArrType = int32_t>
+class DoroCode {
+public:
+  using IndexType = int;
+  using SparseVector = std::unordered_map<IndexType, ArrType>;
+  using PairType = std::pair<IndexType, ArrType>;
 
-    template <typename RandomDevice>
-    DoroCode(int size, int k, bool is_cbf, RandomDevice &rng) : arr_(size), is_cbf_(is_cbf), k_(k), num_peels_(0), num_correct_peels_(0)
-    {
-      hash_funcs_.reserve(k_);
-      for ([[maybe_unused]] int i : std::views::iota(0, k_))
-      {
-        hash_funcs_.emplace_back(/*seed*/ rng(), /*mask*/ 0, /*mod*/ 2 * size);
+  template <typename RandomDevice>
+  DoroCode(int size, int k, bool is_cbf, RandomDevice& rng) : arr_(size), is_cbf_(is_cbf), k_(k), num_peels_(0), num_correct_peels_(0) {
+    hash_funcs_.reserve(k_);
+    for ([[maybe_unused]] int i : std::views::iota(0, k_)) {
+      hash_funcs_.emplace_back(/*seed*/ rng(), /*mask*/ 0, /*mod*/ 2 * size);
+    }
+  }
+
+  void encode(SparseVector kvpairs) {
+    assert(values_.empty());
+    ground_truth_ = std::move(kvpairs);
+
+    for (auto [x, val] : ground_truth_) {
+      for (int i : std::views::iota(0, k_)) {
+        auto [index, sign] = hash(i, x);
+        arr_[index] += sign * val;
       }
+      values_[x] = val;
     }
+  }
 
-    void encode(SparseVector kvpairs)
-    {
-      assert(values_.empty());
-      ground_truth_ = std::move(kvpairs);
-
-      for (auto [x, val] : ground_truth_)
-      {
-        for (int i : std::views::iota(0, k_))
-        {
-          auto [index, sign] = hash(i, x);
-          arr_[index] += sign * val;
-        }
-        values_[x] = val;
-      }
+  // if delta is 1, all counters will be REDUCED by 1 (if positive sign)
+  // or INCREASED by 1 (if negative sign)
+  void peel(int element, ArrType delta) {
+    num_peels_ += 1;
+    for (int i : std::views::iota(0, k_)) {
+      auto [index, sign] = hash(i, element);
+      arr_[index] -= sign * delta;
     }
+    auto element_iter = values_.find(element);
+    int ori_value = (element_iter != values_.end()) ? element_iter->second : 0;
+    int new_value = ori_value - delta;
+    values_[element] = new_value;
+    if (std::abs(new_value) < std::abs(ori_value))
+      num_correct_peels_ += 1;
+  }
 
-    // if delta is 1, all counters will be REDUCED by 1 (if positive sign)
-    // or INCREASED by 1 (if negative sign)
-    void peel(int element, ArrType delta)
-    {
-      num_peels_ += 1;
-      for (int i : std::views::iota(0, k_))
-      {
-        auto [index, sign] = hash(i, element);
-        arr_[index] -= sign * delta;
-      }
-      auto element_iter = values_.find(element);
-      int ori_value = (element_iter != values_.end()) ? element_iter->second : 0;
-      int new_value = ori_value - delta;
-      values_[element] = new_value;
-      if (std::abs(new_value) < std::abs(ori_value))
-        num_correct_peels_ += 1;
+  // senses the signal of an element by inner product
+  // performance bottleneck
+  ArrType sense(int element) const {
+    ArrType signal = 0;
+    for (int i : std::views::iota(0, k_)) {
+      auto [index, sign] = hash(i, element);
+      signal += sign * arr_[index];
     }
+    return signal;
+  }
 
-    // senses the signal of an element by inner product
-    // performance bottleneck
-    ArrType sense(int element) const
-    {
-      ArrType signal = 0;
-      for (int i : std::views::iota(0, k_))
-      {
-        auto [index, sign] = hash(i, element);
-        signal += sign * arr_[index];
-      }
-      return signal;
+  // Returns median signal. If k_ is even, returns the smaller one in absolute value.
+  ArrType sense_l1(int element) const {
+    std::vector<ArrType> signals(k_);
+    for (int i : std::views::iota(0, k_)) {
+      auto [index, sign] = hash(i, element);
+      signals[i] = sign * arr_[index];
     }
-
-    // Returns median signal. If k_ is even, returns the smaller one in absolute value.
-    ArrType sense_l1(int element) const
-    {
-      std::vector<ArrType> signals(k_);
-      for (int i : std::views::iota(0, k_))
-      {
-        auto [index, sign] = hash(i, element);
-        signals[i] = sign * arr_[index];
-      }
-      auto med_iter = signals.begin() + k_ / 2;
-      std::nth_element(signals.begin(), med_iter, signals.end());
-      if (k_ % 2 == 0)
-      {
-        auto med_iter2 = med_iter - 1;
-        std::nth_element(signals.begin(), med_iter2, med_iter);
-        if (*med_iter * (*med_iter2) < 0)
-          return 0;
-        else if (std::abs(*med_iter) > std::abs(*med_iter2))
-          return *med_iter2;
-      }
-      // if (*med_iter != 0) {
-      //   std::cout << "Signals: " << element << " ";
-      //   int sum = 0;
-      //   for (auto signal : signals) {
-      //     std::cout << signal << " ";
-      //     sum += signal;
-      //   }
-      //   std::cout << "\t" << *med_iter << "\t" << sum << std::endl;
-      // }
-      return *med_iter;
+    auto med_iter = signals.begin() + k_ / 2;
+    std::nth_element(signals.begin(), med_iter, signals.end());
+    if (k_ % 2 == 0) {
+      auto med_iter2 = med_iter - 1;
+      std::nth_element(signals.begin(), med_iter2, med_iter);
+      if (*med_iter * (*med_iter2) < 0)
+        return 0;
+      else if (std::abs(*med_iter) > std::abs(*med_iter2))
+        return *med_iter2;
     }
+    // if (*med_iter != 0) {
+    //   std::cout << "Signals: " << element << " ";
+    //   int sum = 0;
+    //   for (auto signal : signals) {
+    //     std::cout << signal << " ";
+    //     sum += signal;
+    //   }
+    //   std::cout << "\t" << *med_iter << "\t" << sum << std::endl;
+    // }
+    return *med_iter;
+  }
 
-    int nonzero_num() const
-    {
-      return std::count_if(values_.begin(), values_.end(), [](PairType pair)
-                           { return pair.second != 0; });
-    }
+  int nonzero_num() const {
+    return std::count_if(values_.begin(), values_.end(), [](PairType pair) { return pair.second != 0; });
+  }
 
-    ArrType mae() const
-    {
-      return std::accumulate(values_.begin(), values_.end(), 0, [](ArrType sum, PairType pair)
-                             { return sum + std::abs(pair.second); });
-    }
+  ArrType mae() const {
+    return std::accumulate(values_.begin(), values_.end(), 0, [](ArrType sum, PairType pair) { return sum + std::abs(pair.second); });
+  }
 
-    void reset()
-    {
-      arr_.assign(size(), 0);
-      num_peels_ = 0;
-      num_correct_peels_ = 0;
-      values_ = {};
-      encode(std::move(ground_truth_));
-    }
+  void reset() {
+    arr_.assign(size(), 0);
+    num_peels_ = 0;
+    num_correct_peels_ = 0;
+    values_ = {};
+    encode(std::move(ground_truth_));
+  }
 
-    int size() const
-    {
-      return arr_.size();
-    }
+  int size() const {
+    return arr_.size();
+  }
 
-    int k() const { return k_; }
-    int num_peels() const { return num_peels_; }
+  std::vector<ArrType>& code() { return arr_; }
 
-    void show_result() const
-    {
-      std::cout << "Number of peels: " << num_peels_ << std::endl;
-      std::cout << "Number of correct peels: " << num_correct_peels_ << std::endl;
-      std::cout << "Number of wrong peels: " << num_peels_ - num_correct_peels_ << std::endl;
-      std::cout << "Size of nonzero indices: " << nonzero_num() << std::endl;
-      std::cout << "L1 Norm of indices: " << mae() << std::endl;
-    }
+  int k() const { return k_; }
+  int num_peels() const { return num_peels_; }
 
-    std::pair<IndexType, int> hash(int i, IndexType x) const
-    {
-      int hash_value = hash_funcs_[i].hash_in_range(x);
-      int idx = (hash_value >= size()) ? hash_value - size() : hash_value;
-      int sign = (is_cbf_ || hash_value < size()) ? 1 : -1;
-      return {idx, sign};
-    }
+  void show_result() const {
+    std::cout << "Number of peels: " << num_peels_ << std::endl;
+    std::cout << "Number of correct peels: " << num_correct_peels_ << std::endl;
+    std::cout << "Number of wrong peels: " << num_peels_ - num_correct_peels_ << std::endl;
+    std::cout << "Size of nonzero indices: " << nonzero_num() << std::endl;
+    std::cout << "L1 Norm of indices: " << mae() << std::endl;
+  }
 
-  private:
-    std::vector<ArrType> arr_;
-    SparseVector values_, ground_truth_;
+  std::pair<IndexType, int> hash(int i, IndexType x) const {
+    int hash_value = hash_funcs_[i].hash_in_range(x);
+    int idx = (hash_value >= size()) ? hash_value - size() : hash_value;
+    int sign = (is_cbf_ || hash_value < size()) ? 1 : -1;
+    return { idx, sign };
+  }
 
-    // If is_cbf_ is true, then all hashed signs are positive.
-    bool is_cbf_; // cbf: counting Bloom filter
-    std::vector<ONIAK::WYHash> hash_funcs_;
-    int k_, num_peels_, num_correct_peels_;
-  };
+  bool isempty() const {
+    return std::all_of(arr_.begin(), arr_.end(), [](ArrType val) { return val == 0; });
+  }
 
-}
+private:
+  std::vector<ArrType> arr_;
+  SparseVector values_, ground_truth_;
+
+  // If is_cbf_ is true, then all hashed signs are positive.
+  bool is_cbf_; // cbf: counting Bloom filter
+  std::vector<ONIAK::WYHash> hash_funcs_;
+  int k_, num_peels_, num_correct_peels_;
+};
+
+} // namespace Doro
 
 #endif
