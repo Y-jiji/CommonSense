@@ -39,10 +39,11 @@ public:
   using TwoDimVector = std::vector<std::vector<int>>;
   using UpdatePQ = ONIAK::UpdatePQAdapter<int, ArrType, backend>::type;
 
-  DoroDecoder(ONIAK::WYHash* finger_hash = nullptr) : finger_hash_(finger_hash), priority_queue_(
-    // function from sensed strength to priority
-    [](ArrType a) {return std::abs(a);}
-  ), collision_resolving_(false) {
+  DoroDecoder(ONIAK::WYHash* finger_hash = nullptr, ONIAK::WYHash* resolving_hash = nullptr) :
+    finger_hash_(finger_hash), resolving_hash_(resolving_hash), priority_queue_(
+      // function from sensed strength to priority
+      [](ArrType a) {return std::abs(a);}
+    ), collision_resolving_(false) {
   }
 
   int stage_decode(
@@ -178,7 +179,7 @@ public:
 
   int decode(
     DoroCodeT* code,
-    const std::vector<int>& setA, /*possible candidates of code*/
+    const std::unordered_set<int>& setA, /*possible candidates of code*/
     const DecodeConfig* config,
     std::unordered_map<int, ArrType>*& result) {
     code_ = code;
@@ -199,19 +200,13 @@ public:
       }
       ArrType strength = is_l2 ? code_->sense(element) : code_->sense_l1(element);
       ArrType delta = strength_to_delta(element, strength);
-
-      // if fingerprint mechanism is active, then this element must not collide with any known fingerprint
-      bool fingerprint_condition = (finger_hash_ == nullptr) || !fingerprints_.contains((*finger_hash_)(element));
-      if (std::abs(delta) > 1e-6 && fingerprint_condition) {
-        priority_queue_.push(element, strength);
-      }
-      else
-        priority_queue_.set(element, strength);
-      // priority_queue_.push(element, code_->sense(element));
+      if (std::abs(delta) > 1e-6)
+        add_to_priority_queue(element, strength);
     }
-
+    std::unordered_set<int> new_elements;
     while (!priority_queue_.empty()) {
       auto [strength, element] = priority_queue_.top();
+      new_elements.insert(element);
       auto thrash_iter = thrashing_.find(element);
       int thrash = (thrash_iter != thrashing_.end()) ? thrash_iter->second : 0;
       if (thrash > config_->ta) break;
@@ -244,16 +239,25 @@ public:
       for (auto [neighbor, neighbor_cnt] : affected_neighbors) {
         ArrType neighbor_strength = new_strength2(neighbor, priority_queue_[neighbor], delta, neighbor_cnt);
         ArrType neighbor_delta = strength_to_delta(neighbor, neighbor_strength);
-        bool fingerprint_condition = (finger_hash_ == nullptr) || !fingerprints_.contains((*finger_hash_)(element));
-        if (std::abs(neighbor_delta) > 1e-6 && fingerprint_condition)
-          priority_queue_.update(neighbor, neighbor_strength);
-        else
-          priority_queue_.set(neighbor, neighbor_strength);
+        if (std::abs(neighbor_delta) > 1e-6)
+          add_to_priority_queue(neighbor, neighbor_strength);
       }
       if (config_->verbose) {
         std::cout << std::format("thrash: {}, power: {}, element: {}, cur_element_value: {}, delta: {}\n",
           thrash, strength, element, cur_element_value, delta);
         code_->show_result();
+      }
+    }
+
+    if (collision_resolving_ && finger_hash_ != nullptr && resolving_hash_ != nullptr) {
+      for (auto key : new_elements) {
+        if (std::abs(result_.at(key)) > 1e-6) {
+          int finger1 = (*finger_hash_)(key);
+          if (fingerprints_.contains(finger1)) {
+            int finger2 = (*resolving_hash_)(key);
+            unresolved_elements_.push_back({ finger1, finger2 });
+          }
+        }
       }
     }
     return code_->num_peels();
@@ -267,19 +271,84 @@ public:
     }
   }
 
+  std::unordered_map<int, ArrType>& result() {
+    return result_;
+  }
+
+  // returns number of detected collisions
+  int resolve_collision(DoroDecoder& other, std::unordered_set<int>& setA, std::unordered_set<int>& setB) {
+    assert(finger_hash_ != nullptr && *other.finger_hash_ == *finger_hash_);
+    assert(resolving_hash_ != nullptr && *other.resolving_hash_ == *resolving_hash_);
+    my_fingerprints_.clear();
+    for (auto [key, value] : result_) {
+      if (std::abs(value) > 1e-6) {
+        int finger1 = (*finger_hash_)(key);
+        my_fingerprints_.insert({ finger1, key });
+      }
+    }
+    int num_collisions = 0;
+
+    for (auto [finger1, finger2] : other.unresolved_elements_) {
+      auto [finger_iter, iter_end] = my_fingerprints_.equal_range(finger1);
+      for (; finger_iter != iter_end; ++finger_iter) {
+        int element = finger_iter->second;
+        int f2_element = (*resolving_hash_)(element);
+
+        if (f2_element == finger2) {  // collision detected, reverting
+          ++num_collisions;
+          ArrType cur_value = result_.at(element);
+          ArrType other_value = other.result_.at(element);
+          if (cur_value != 0) {
+            result_[element] = 0;
+            ++code_->num_peels();
+            ++code_->num_correct_peels();
+          }
+          if (other_value != 0) {
+            other.result_[element] = 0;
+            ++other.code_->num_peels();
+            ++other.code_->num_correct_peels();
+          }
+          setA.erase(element);
+          setB.erase(element);
+        } // else accept the change, nothing is needed
+      }
+    }
+    other.unresolved_elements_.clear();
+    return num_collisions;
+  }
+
   void reset() {
     result_.clear();
     fingerprints_.clear();
     thrashing_.clear();
     priority_queue_.clear();
     collision_resolving_ = false;
+    unresolved_elements_.clear();
+    my_fingerprints_.clear();
   }
 
   void enter_resolving() {
     collision_resolving_ = true;
   }
 
+  std::vector<std::pair<int, int>>& unresolved_elements() {
+    return unresolved_elements_;
+  }
+
+  void add_to_priority_queue(int element, ArrType strength) {
+    // if fingerprint mechanism is active, then this element must not collide with any known fingerprint
+    bool fingerprint_condition = (finger_hash_ == nullptr) || !fingerprints_.contains((*finger_hash_)(element));
+    if (collision_resolving_ || fingerprint_condition)
+      priority_queue_.push(element, strength);
+    else
+      priority_queue_.set(element, strength);
+  }
+
   std::unordered_set<int>& fingerprints() {
+    return fingerprints_;
+  }
+
+  const std::unordered_set<int>& fingerprints() const {
     return fingerprints_;
   }
 
@@ -318,14 +387,16 @@ private:
   }
 
   DoroCodeT* code_;
-  ONIAK::WYHash* finger_hash_;
+  ONIAK::WYHash* finger_hash_, * resolving_hash_;
   TwoDimVector neighbors_, neighbors2_;
   std::unordered_map<int, ArrType> result_;
   std::unordered_set<int> fingerprints_;
   std::unordered_map<int, int> thrashing_;
+  std::unordered_multimap<int, int> my_fingerprints_;
   UpdatePQ priority_queue_;
   const DecodeConfig* config_;
   bool collision_resolving_;
+  std::vector<std::pair<int, int>> unresolved_elements_;
 };
 }
 #endif

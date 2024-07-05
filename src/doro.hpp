@@ -25,7 +25,7 @@ public:
   DoroCode(int size, int k, bool is_cbf, RandomDevice& rng) : arr_(size), is_cbf_(is_cbf), k_(k), num_peels_(0), num_correct_peels_(0) {
     hash_funcs_.reserve(k_);
     for ([[maybe_unused]] int i : std::views::iota(0, k_)) {
-      hash_funcs_.emplace_back(/*seed*/ rng(), /*mask*/ 0, /*mod*/ 2 * size);
+      hash_funcs_.emplace_back(/*mask*/ 0, /*mod*/ 2 * size, /*seed*/ rng());
     }
   }
 
@@ -122,6 +122,8 @@ public:
 
   int k() const { return k_; }
   int num_peels() const { return num_peels_; }
+  int& num_peels() { return num_peels_; }
+  int& num_correct_peels() { return num_correct_peels_; }
 
   void show_result() const {
     std::cout << "Number of peels: " << num_peels_ << std::endl;
@@ -138,7 +140,7 @@ public:
     return { idx, sign };
   }
 
-  bool isempty() const {
+  bool empty() const {
     return std::all_of(arr_.begin(), arr_.end(), [](ArrType val) { return val == 0; });
   }
 

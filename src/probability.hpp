@@ -88,13 +88,13 @@ std::unordered_map<int, double> get_pmf(double lambda, int x, bool counting) {
 // all entropies are in bits
 template <typename T, typename V, typename H>
 double entropy(const std::unordered_map<T, V, H>& map) {
-  double sum = 0, psum = 0;
+  double psum = std::accumulate(map.begin(), map.end(), 0.0, [](double sum, const auto& pair) {
+    return sum + pair.second;
+  });
+  double sum = 0;
   for (auto [key, p] : map) {
-    sum += p * std::log2(p);
-    psum += p;
-  }
-  if (std::abs(psum - 1) > 1e-6) {
-    std::cerr << "Warning: Probability does not sum to 1." << std::endl;
+    double p0 = p / psum;
+    sum += p0 * std::log2(p0);
   }
   return -sum;
 }
@@ -119,14 +119,8 @@ double doro_entropy(const std::unordered_map<int, double>& rvx, const std::unord
   return entropy(pmap);
 }
 
-template<typename T>
-int num_extra_elements(const std::unordered_map<int, T>& map1, const std::unordered_map<int, T>& map2) {
-  int count = 0;
-  for (auto [key, value] : map1) {
-    if (map2.find(key) == map2.end() || map2.at(key) != value)
-      count += 1;
-  }
-  return count;
+int log2_ceil(int x) {
+  return static_cast<int>(std::ceil(std::log2(x)));
 }
 
 }  // namespace Doro
