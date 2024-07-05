@@ -1,0 +1,20 @@
+{
+  "script": ["ROOT/build/two_party", "JSON"],
+  "root path": "/media/mydrive/CDMA",
+  "max process": 34,
+  "seed": 0,
+  "universe": 1000000,
+  "A size": 100000,
+  "B size": 100000,
+  "A minus B size": 1000,
+  "k": 8,
+  "d": 58000,
+  "s": 16, 
+  "s2": 16,
+  "id": 1,
+  "tk": 100,
+  "max rounds": 1000,
+  "counting": true,
+  "resolving round": 10,
+  "result filename": "../result/two_party/test.json"
+}
