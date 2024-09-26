@@ -86,15 +86,6 @@ public:
       else if (std::abs(*med_iter) > std::abs(*med_iter2))
         return *med_iter2;
     }
-    // if (*med_iter != 0) {
-    //   std::cout << "Signals: " << element << " ";
-    //   int sum = 0;
-    //   for (auto signal : signals) {
-    //     std::cout << signal << " ";
-    //     sum += signal;
-    //   }
-    //   std::cout << "\t" << *med_iter << "\t" << sum << std::endl;
-    // }
     return *med_iter;
   }
 
@@ -104,6 +95,25 @@ public:
 
   ArrType mae() const {
     return std::accumulate(values_.begin(), values_.end(), 0, [](ArrType sum, PairType pair) { return sum + std::abs(pair.second); });
+  }
+
+  // if any two hashes do not collide, return 0
+  // if there are two hashes colliding under the same sign, return 1
+  // if colliding under opposite signs, return 2
+  int is_colliding(int element) const {
+    std::unordered_map<int, int> hash_to_sign;
+    for (auto i : std::views::iota(0, k_)) {
+      auto [index, sign] = hash(i, element);
+      auto iter = hash_to_sign.find(index);
+      if (iter == hash_to_sign.end()) {
+        hash_to_sign[index] = sign;
+      } else if (iter->second != sign) {
+        return 2;
+      } else {
+        return 1;
+      }
+    }
+    return 0;
   }
 
   void reset() {

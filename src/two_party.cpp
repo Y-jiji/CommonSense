@@ -24,28 +24,29 @@ using namespace nlohmann;
 enum class Party { Alis = 0, Bela = 1 };
 enum class Status { CollisionAvoiding = 0, CollisionResolving = 1, Finished = 2 };
 
-void get_sizes(const std::unordered_map<int, int>& result1, 
+bool get_sizes(const std::unordered_map<int, int>& result1,
   const std::unordered_map<int, int>& result2, const std::unordered_set<int>& setA_minus_B, const std::unordered_set<int>& setB_minus_A,
   json& config) {
-int A_minus_B_remaining_size = setA_minus_B.size(), B_minus_A_remaining_size = setB_minus_A.size(), A_intersect_B_remaining_size = 0;
-    for (auto [key, value] : result1) {
-      if (value == 0) continue;
-      if (setA_minus_B.contains(key)) --A_minus_B_remaining_size;
-      else if (setB_minus_A.contains(key)) --B_minus_A_remaining_size;
-      else {
-        ++A_intersect_B_remaining_size;
-      }
+  int A_minus_B_remaining_size = setA_minus_B.size(), B_minus_A_remaining_size = setB_minus_A.size(), A_intersect_B_remaining_size = 0;
+  for (auto [key, value] : result1) {
+    if (value == 0) continue;
+    if (setA_minus_B.contains(key)) --A_minus_B_remaining_size;
+    else if (setB_minus_A.contains(key)) --B_minus_A_remaining_size;
+    else {
+      ++A_intersect_B_remaining_size;
     }
-    for (auto [key, value] : result2) {
-      if (value == 0) continue;
-      if (setA_minus_B.contains(key)) --A_minus_B_remaining_size;
-      else if (setB_minus_A.contains(key)) --B_minus_A_remaining_size;
-      else ++A_intersect_B_remaining_size;
-    }
-    config["A minus B remaining"].push_back(A_minus_B_remaining_size);
-    config["B minus A remaining"].push_back(B_minus_A_remaining_size);
-    config["A intersect B remaining"].push_back(A_intersect_B_remaining_size);
   }
+  for (auto [key, value] : result2) {
+    if (value == 0) continue;
+    if (setA_minus_B.contains(key)) --A_minus_B_remaining_size;
+    else if (setB_minus_A.contains(key)) --B_minus_A_remaining_size;
+    else ++A_intersect_B_remaining_size;
+  }
+  config["A minus B remaining"].push_back(A_minus_B_remaining_size);
+  config["B minus A remaining"].push_back(B_minus_A_remaining_size);
+  config["A intersect B remaining"].push_back(A_intersect_B_remaining_size);
+  return A_minus_B_remaining_size == 0 && B_minus_A_remaining_size == 0 && A_intersect_B_remaining_size == 0;
+}
 
 
 int main(int argc, char* argv[]) {
@@ -74,7 +75,9 @@ int main(int argc, char* argv[]) {
   int tk = 20;  // stage decode
   if (config.contains("tk")) tk = config.at("tk");
   int ta = 5;
-  if (config.contains("ta")) tk = config.at("ta");
+  if (config.contains("ta")) ta = config.at("ta");
+  int to = -1;
+  if (config.contains("to")) to = config.at("to");
   std::string save_path = config.at("result filename");
   int max_rounds = 1'0000'0000;
   if (config.contains("max rounds")) max_rounds = config.at("max rounds");
@@ -108,7 +111,12 @@ int main(int argc, char* argv[]) {
   auto A_intersect_B_map = get_pmf(lambda, d, counting);
   lambda = static_cast<double>(B_minus_A_size) * k / d;
   auto B_minus_A_map = get_pmf(lambda, d, counting);
-  double first_round_cost = doro_entropy(A_intersect_B_map, A_minus_B_map, B_minus_A_map) * d;
+  lambda = static_cast<double>(B_size) * k / d;
+  auto B_map = get_pmf(lambda, d, counting);
+  double B_entropy = entropy(B_map);
+  double all_entropy = doro_entropy(A_intersect_B_map, A_minus_B_map, B_minus_A_map);
+  // This is conditional entropy H(A | B).
+  double first_round_cost = (all_entropy - B_entropy) * d;
   config["comm costs"] = json::array({ first_round_cost });
   config["doro costs"] = json::array({ first_round_cost });
   config["finger costs"] = json::array({ 0 });
@@ -135,14 +143,15 @@ int main(int argc, char* argv[]) {
 
   Status status = Status::CollisionAvoiding;
   DoroDecoder<int32_t> decoder_alis(&finger_hash, &resolving_hash), decoder_bela(&finger_hash, &resolving_hash);
-  DecodeConfig dconf_alis(tk, max_rounds, ta, /*verbose*/ false, /*debug*/ false, /*lb*/ -1, /*ub*/ 0, PursuitChoice::L2),
-    dconf_bela(tk, max_rounds, ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, PursuitChoice::L2);
+  DecodeConfig dconf_alis(tk, max_rounds, to, ta, /*verbose*/ false, /*debug*/ false, /*lb*/ -1, /*ub*/ 0, PursuitChoice::L2),
+    dconf_bela(tk, max_rounds, to, ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, PursuitChoice::L2);
   StopWatch sw;
   unordered_map<int, int> result_alis, result_bela;
   // elements whose fingerprints have been transmitted
   unordered_set<int> elements_alis, elements_bela;
   bool no_advance = false;
   int comm_rounds = 0, actual_comm_rounds = 0;
+  bool success = false;
 
   while (!doro.empty() && comm_rounds < max_comm_rounds && status != Status::Finished) {
     actual_comm_rounds = std::max(actual_comm_rounds, comm_rounds + 1);
@@ -160,8 +169,8 @@ int main(int argc, char* argv[]) {
     if (doro.empty() && decoder.unresolved_elements().empty()) {
       config["time"].push_back(sw.peek());
       config["num peels"].push_back(num_peels);
-      get_sizes(decoder.result(), other_decoder.result(), setA_minus_B, setB_minus_A, config);
-      break; 
+      success = success || get_sizes(decoder.result(), other_decoder.result(), setA_minus_B, setB_minus_A, config);
+      break;
     }
 
     double empirical_entropy = entropy(frequency_count(doro.code()));
@@ -175,7 +184,7 @@ int main(int argc, char* argv[]) {
         elements.insert(key);
       }
     }
-    
+
     int unresolved_size = decoder.unresolved_elements().size();
     double resolving_cost = unresolved_size * (s2);
     if (!decoder.unresolved_elements().empty()) {
@@ -192,7 +201,7 @@ int main(int argc, char* argv[]) {
     config["resolving costs"].push_back(resolving_cost);
     double comm_cost = doro_cost + finger_cost + resolving_cost;
     config["comm costs"].push_back(comm_cost);
-    get_sizes(decoder.result(), other_decoder.result(), setA_minus_B, setB_minus_A, config);
+    success = success || get_sizes(decoder.result(), other_decoder.result(), setA_minus_B, setB_minus_A, config);
 
     config["time"].push_back(sw.peek());
     config["num peels"].push_back(doro.num_peels());
@@ -221,6 +230,7 @@ int main(int argc, char* argv[]) {
     total_comm_cost += cost.get<double>();
   }
   config["total communication cost"] = total_comm_cost;
+  config["success"] = success;
 
   std::ofstream fout(save_path);
   fout << std::setw(4) << config << endl;  // indent 4

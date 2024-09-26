@@ -25,6 +25,8 @@ enum class PursuitChoice {
 struct DecodeConfig {
   int tk, max_stage; // used for stage decode.
   // tk is stage size
+  int to; // minimum signal strength for decoding
+          // if to is minus, then any strength is valid as long as delta > 0
   int ta; // terminate if any element thrashes for ta times.
   bool verbose, debug;
   // lower and upper bound of value range
@@ -189,6 +191,8 @@ public:
     neighbors_.assign(code_->size(), {});
     neighbors2_.assign(code_->size(), {});
     priority_queue_.clear();
+    colliding1_.clear();
+    colliding2_.clear();
     bool is_l2 = config_->pursuit_choice == PursuitChoice::L2; // else is l1
 
     for (int element : setA) {
@@ -198,10 +202,14 @@ public:
           neighbors_[index].push_back(element);
         else neighbors2_[index].push_back(element);
       }
+      int colliding = code_->is_colliding(element);
+      if (colliding == 1)
+        colliding1_.insert(element);
+      else if (colliding == 2)
+        colliding2_.insert(element);
       ArrType strength = is_l2 ? code_->sense(element) : code_->sense_l1(element);
       ArrType delta = strength_to_delta(element, strength);
-      if (std::abs(delta) > 1e-6)
-        add_to_priority_queue(element, strength);
+      add_to_priority_queue(element, strength, delta);
     }
     std::unordered_set<int> new_elements;
     while (!priority_queue_.empty()) {
@@ -218,7 +226,12 @@ public:
       ArrType cur_element_value = (cur_iter != result_.end()) ? cur_iter->second : 0;
       result_[element] = cur_element_value + delta;
       priority_queue_.pop();
-      priority_queue_.set(element, new_strength2(element, strength, delta, code_->k()));
+      int colliding_compensation = 0;
+      if (colliding1_.contains(element))
+        colliding_compensation = 2;
+      else if (colliding2_.contains(element))
+        colliding_compensation = -2;
+      priority_queue_.set(element, new_strength2(element, strength, delta, code_->k() + colliding_compensation));
 
       std::unordered_map<int, int> affected_neighbors;
       for (int i : std::views::iota(0, code_->k())) {
@@ -239,8 +252,7 @@ public:
       for (auto [neighbor, neighbor_cnt] : affected_neighbors) {
         ArrType neighbor_strength = new_strength2(neighbor, priority_queue_[neighbor], delta, neighbor_cnt);
         ArrType neighbor_delta = strength_to_delta(neighbor, neighbor_strength);
-        if (std::abs(neighbor_delta) > 1e-6)
-          add_to_priority_queue(neighbor, neighbor_strength);
+        add_to_priority_queue(neighbor, neighbor_strength, neighbor_delta);
       }
       if (config_->verbose) {
         std::cout << std::format("thrash: {}, power: {}, element: {}, cur_element_value: {}, delta: {}\n",
@@ -249,6 +261,8 @@ public:
       }
     }
 
+    unresolved_elements_.clear();
+    unresolved_ids_.clear();
     if (collision_resolving_ && finger_hash_ != nullptr && resolving_hash_ != nullptr) {
       for (auto key : new_elements) {
         if (std::abs(result_.at(key)) > 1e-6) {
@@ -256,6 +270,7 @@ public:
           if (fingerprints_.contains(finger1)) {
             int finger2 = (*resolving_hash_)(key);
             unresolved_elements_.push_back({ finger1, finger2 });
+            unresolved_ids_.push_back(key);
           }
         }
       }
@@ -288,16 +303,18 @@ public:
     }
     int num_collisions = 0;
 
-    for (auto [finger1, finger2] : other.unresolved_elements_) {
-      auto [finger_iter, iter_end] = my_fingerprints_.equal_range(finger1);
+    for (size_t i = 0; i < other.unresolved_elements_.size(); ++i) {
+      auto [finger1, finger2] = other.unresolved_elements_.at(i);
+      auto [finger_iter, iter_end] = my_fingerprints_.equal_range(finger1); 
       for (; finger_iter != iter_end; ++finger_iter) {
         int element = finger_iter->second;
-        int f2_element = (*resolving_hash_)(element);
-
+        int other_element = other.unresolved_ids_[i];
+        int f2_element = (*resolving_hash_)(element); 
         if (f2_element == finger2) {  // collision detected, reverting
+        // CAUTION: if there is any collision with finger2, then set reconciliation would fail.
           ++num_collisions;
           ArrType cur_value = result_.at(element);
-          ArrType other_value = other.result_.at(element);
+          ArrType other_value = other.result_.at(other_element);
           if (cur_value != 0) {
             result_[element] = 0;
             ++code_->num_peels();
@@ -308,8 +325,11 @@ public:
             ++other.code_->num_peels();
             ++other.code_->num_correct_peels();
           }
+          code_->peel(element, -cur_value);
+          other.code_->peel(other_element, -other_value);
           setA.erase(element);
           setB.erase(element);
+          break;
         } // else accept the change, nothing is needed
       }
     }
@@ -325,6 +345,7 @@ public:
     collision_resolving_ = false;
     unresolved_elements_.clear();
     my_fingerprints_.clear();
+    unresolved_ids_.clear();
   }
 
   void enter_resolving() {
@@ -335,10 +356,12 @@ public:
     return unresolved_elements_;
   }
 
-  void add_to_priority_queue(int element, ArrType strength) {
+  void add_to_priority_queue(int element, ArrType strength, ArrType delta) {
     // if fingerprint mechanism is active, then this element must not collide with any known fingerprint
     bool fingerprint_condition = (finger_hash_ == nullptr) || !fingerprints_.contains((*finger_hash_)(element));
-    if (collision_resolving_ || fingerprint_condition)
+    bool to_condition = (config_->to < 0) || (std::abs(strength) >= config_->to);
+    bool delta_condition = (std::abs(delta) > 1e-6);
+    if ((collision_resolving_ || fingerprint_condition) && to_condition && delta_condition)
       priority_queue_.push(element, strength);
     else
       priority_queue_.set(element, strength);
@@ -383,7 +406,10 @@ private:
 
   ArrType new_strength2(int element, ArrType strength, ArrType delta, int k) const {
     bool is_l2 = config_->pursuit_choice == PursuitChoice::L2;
-    return is_l2 ? strength - delta * k : code_->sense_l1(element);
+    ArrType new_str = is_l2 ? strength - delta * k : code_->sense_l1(element);
+    assert(!is_l2 || new_str == code_->sense(element)); 
+        // the bookkeeping of strengths should always be correct
+    return new_str;
   }
 
   DoroCodeT* code_;
@@ -391,12 +417,14 @@ private:
   TwoDimVector neighbors_, neighbors2_;
   std::unordered_map<int, ArrType> result_;
   std::unordered_set<int> fingerprints_;
+  std::unordered_set<int> colliding1_, colliding2_;
   std::unordered_map<int, int> thrashing_;
   std::unordered_multimap<int, int> my_fingerprints_;
   UpdatePQ priority_queue_;
   const DecodeConfig* config_;
   bool collision_resolving_;
   std::vector<std::pair<int, int>> unresolved_elements_;
+  std::vector<int> unresolved_ids_;
 };
 }
 #endif

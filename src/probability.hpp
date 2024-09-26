@@ -55,17 +55,19 @@ public:
   Poisson(double lambda) : lambda_(lambda) {}
 
   double pmf(int k) const {
-    return std::exp(-lambda_) * std::pow(lambda_, k) / std::tgamma(k + 1);
+    return std::exp(-lambda_ + k * std::log(lambda_) - std::lgamma(k + 1));
   }
 
   std::unordered_map<int, double> pmf_map() const {
     std::unordered_map<int, double> result;
+    bool started = false;
     for (int k = 0; true; ++k) {
       double p = pmf(k);
-      if (p < DoubleEpsilon)
+      if (started && p < DoubleEpsilon) 
         break;
-      else
-        result[k] = p;
+      if (p >= DoubleEpsilon)
+        started = true;
+      result[k] = p;
     }
     return result;
   }
@@ -74,6 +76,7 @@ private:
   double lambda_;
 };
 
+/* get pmf of counters*/
 std::unordered_map<int, double> get_pmf(double lambda, int x, bool counting) {
   if (counting) {
     Poisson poisson(lambda);
