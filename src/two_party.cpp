@@ -1,6 +1,7 @@
 #include "doro.hpp"
 #include "decoder.hpp"
 #include "probability.hpp"
+#include "rans_wrapper.hpp"
 
 #include "oniakRandom/orand.h"
 #include "oniakTimer/otime.h"

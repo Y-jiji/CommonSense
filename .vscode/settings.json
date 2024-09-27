@@ -28,6 +28,8 @@
     "iosfwd": "cpp",
     "functional": "cpp",
     "valarray": "cpp",
-    "iostream": "cpp"
-  }
+    "iostream": "cpp",
+    "unordered_map": "cpp"
+  },
+  "C_Cpp.errorSquiggles": "enabled"
 }
