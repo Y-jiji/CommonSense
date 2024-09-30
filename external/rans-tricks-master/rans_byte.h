@@ -105,10 +105,10 @@ static inline void RansEncFlush(RansState* r, uint8_t** pptr)
 
 // Initializes a rANS decoder.
 // Unlike the encoder, the decoder works forwards as you'd expect.
-static inline void RansDecInit(RansState* r, uint8_t** pptr)
+static inline void RansDecInit(RansState* r, const uint8_t** pptr)
 {
     uint32_t x;
-    uint8_t* ptr = *pptr;
+    const uint8_t* ptr = *pptr;
 
     x  = ptr[0] << 0;
     x |= ptr[1] << 8;
@@ -129,7 +129,7 @@ static inline uint32_t RansDecGet(RansState* r, uint32_t scale_bits)
 // Advances in the bit stream by "popping" a single symbol with range start
 // "start" and frequency "freq". All frequencies are assumed to sum to "1 << scale_bits",
 // and the resulting bytes get written to ptr (which is updated).
-static inline void RansDecAdvance(RansState* r, uint8_t** pptr, uint32_t start, uint32_t freq, uint32_t scale_bits)
+static inline void RansDecAdvance(RansState* r, const uint8_t** pptr, uint32_t start, uint32_t freq, uint32_t scale_bits)
 {
     	uint32_t mask = (1u << scale_bits) - 1;
 
@@ -276,7 +276,7 @@ static inline void RansEncPutSymbol(RansState* r, uint8_t** pptr, RansEncSymbol 
 }
 
 // Equivalent to RansDecAdvance that takes a symbol.
-static inline void RansDecAdvanceSymbol(RansState* r, uint8_t** pptr, RansDecSymbol const* sym, uint32_t scale_bits)
+static inline void RansDecAdvanceSymbol(RansState* r, const uint8_t** pptr, RansDecSymbol const* sym, uint32_t scale_bits)
 {
     RansDecAdvance(r, pptr, sym->start, sym->freq, scale_bits);
 }

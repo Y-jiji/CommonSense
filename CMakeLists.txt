@@ -15,6 +15,7 @@ find_package(libONIAK REQUIRED)
 
 add_executable(two_party "src/two_party.cpp")
 include_directories("external")
+include_directories("src")
 target_link_libraries(two_party PRIVATE ONIAK::libONIAK)
 
 if (INCLUDE_TESTS)

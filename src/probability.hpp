@@ -1,6 +1,7 @@
 #ifndef __PROBABILITY_HPP__
 #define __PROBABILITY_HPP__
 
+#include <numeric>
 #include <cmath>
 #include <unordered_map>
 #include <utility>
