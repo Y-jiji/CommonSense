@@ -1,6 +1,7 @@
 *pycache*
 config/auto
 result
+.vscode
 /.ipynb_checkpoints
 *.pyc
 .DS_Store

@@ -22,13 +22,18 @@ int main() {
 
   std::vector<uint8_t> message1(message_size), message2(message_size);
   for (int i = 0; i < message_size; i++) {
+    message1[320] = 144;
     message1[i] = dis(gen);
     message2[i] = poisson_dis(gen);
   }
+  
 
   StopWatch sw;
   auto frequencies = frequency_count(message1);
   RansWrapper<uint8_t> rans_wrapper(frequencies);
+
+  message1[320] = 144;  // add an unexpected symbol
+
   RansCode code = rans_wrapper.encode(message1);
   auto decoded_message = rans_wrapper.decode(code);
 

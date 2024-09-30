@@ -21,7 +21,11 @@ static const uint32_t prob_bits = 15, prob_scale = 1 << prob_bits;
 class RansCode {
 public:
   RansCode(int size) : code_(size, 0), offset_(size - 2) {}
-  size_t size() const { return code_.size() - offset_; }
+  size_t size() const {
+    return code_.size() - offset_ +
+      extra_index_.size() * sizeof(int) + extra_.size();
+  }
+  // raw codes not containing extra data.
   auto code_view() const { return std::views::all(code_) | std::views::drop(offset_); }
 
 private:
@@ -42,8 +46,11 @@ private:
   const uint8_t* end() const { return code_.data() + code_.size(); }
   const uint8_t* begin() const { return code_.data(); }
 
-  std::vector<uint8_t> code_;
+  std::vector<uint8_t> code_, extra_;
+  // compressed data start from offset_ to code_.size()
+  // extra data is the storage for data not in frequency table
   size_t offset_;
+  std::vector<uint32_t> extra_index_;
   template <typename T>
   friend class RansWrapper;
 };
@@ -60,10 +67,7 @@ public:
       cum += freq;
       cum_freqs.push_back(cum);
     }
-    if (cum > prob_scale) {
-      throw std::invalid_argument("frequency sum greater than 2^15.");
-    }
-    else if (frequencies.size() < 1) {
+    if (frequencies.size() < 1) {
       throw std::invalid_argument("empty frequency map.");
     }
 
@@ -100,8 +104,15 @@ public:
     size_t result_size = data.size() * sizeof(T) + 2;
     RansCode result(result_size);
     uint8_t* ptr = result.data();
-    for (auto& sym : data | std::views::reverse) {
-      // out_of_range error if sym not in the frequency table in construction.
+    for (int i = data.size()-1; i >= 0; --i) {
+      const auto& sym = data[i];
+      if (!esyms_.contains(sym)) {
+        result.extra_index_.push_back(i);
+        auto sym_raw = reinterpret_cast<const uint8_t*>(&sym);
+        result.extra_.insert(result.extra_.end(), sym_raw, sym_raw + sizeof(T));
+        // space to store this data and its index
+        continue; 
+      }
       RansEncPutSymbol(&rans, &ptr, &esyms_.at(sym));
       result.offset_ = ptr - result.begin();
       ptr = result.resize_if_full();
@@ -116,7 +127,15 @@ public:
     const uint8_t* ptr = code.data();
     RansDecInit(&rans, &ptr);
     std::vector<T> result;
+    auto extra_index = code.extra_index_.begin();
+    const uint8_t* extra_ptr = code.extra_.data();
     while (true) {
+      if (extra_index != code.extra_index_.end() && *extra_index == result.size()) {
+        // symbol in extra list.
+        result.push_back(*reinterpret_cast<const T*>(extra_ptr));
+        extra_ptr += sizeof(T);
+        ++extra_index;
+      } 
       uint32_t value = RansDecGet(&rans, prob_bits);
       T sym = inverse_cum_.at(value);
       RansDecAdvanceSymbol(&rans, &ptr, &dsyms_.at(sym), prob_bits);
