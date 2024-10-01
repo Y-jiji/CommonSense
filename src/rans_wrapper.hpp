@@ -51,32 +51,33 @@ private:
   // extra data is the storage for data not in frequency table
   size_t offset_;
   std::vector<uint32_t> extra_index_;
-  template <typename T>
+  template <typename T, typename VAL>
   friend class RansWrapper;
 };
 
-template <typename T> // type to be compressed
+template <typename T, typename VAL> // type to be compressed
 class RansWrapper {
 public:
-  explicit RansWrapper(const std::unordered_map<T, int>& frequencies) {
-    std::vector<uint32_t> freqs, cum_freqs;
-    uint32_t cum = 0;
-    cum_freqs.push_back(0);
-    for (auto& [sym, freq] : frequencies) {
-      freqs.push_back(freq);
-      cum += freq;
-      cum_freqs.push_back(cum);
-    }
+  explicit RansWrapper(const std::unordered_map<T, VAL>& frequencies) {
     if (frequencies.size() < 1) {
       throw std::invalid_argument("empty frequency map.");
     }
 
-    for (auto& cfeq : cum_freqs) {
-      cfeq = (cfeq * prob_scale) / cum;
+    std::vector<uint32_t> freqs, cum_freqs;
+    std::vector<double> real_cum;
+    double cum = 0.0;
+    real_cum.push_back(0.0);
+    for (auto& [sym, freq] : frequencies) {
+      cum += freq;
+      real_cum.push_back(cum);
     }
-    for (size_t i = 0; i < freqs.size(); i++) {
-      freqs[i] = cum_freqs[i + 1] - cum_freqs[i];
-      assert(freqs[i] > 0);
+    
+    for (auto cfeq : real_cum) {
+      cum_freqs.push_back((cfeq * prob_scale) / cum);
+    }
+
+    for (size_t i = 0; i < frequencies.size(); i++) {
+      freqs.push_back(cum_freqs[i + 1] - cum_freqs[i]);
     }
     assert(cum_freqs.back() == prob_scale);
 
@@ -84,6 +85,10 @@ public:
     // Build inverse cdf table
     inverse_cum_.resize(prob_scale);
     for (auto& [sym, freq] : frequencies) {
+      if (freqs[i] == 0) {
+        ++i;
+        continue;
+      }
       RansEncSymbol symbol;
       RansEncSymbolInit(&symbol, cum_freqs[i], freqs[i], prob_bits);
       esyms_[sym] = symbol;

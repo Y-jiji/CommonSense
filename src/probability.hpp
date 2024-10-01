@@ -22,8 +22,9 @@ public:
   }
 
   // skellam may have negative values
-  std::unordered_map<int, double> pmf_map() const {
-    std::unordered_map<int, double> result;
+  template <typename T = int>
+  std::unordered_map<T, double> pmf_map() const {
+    std::unordered_map<T, double> result;
     for (int k = 0; true; ++k) {
       double p = pmf(k);
       if (p < DoubleEpsilon)
@@ -59,8 +60,9 @@ public:
     return std::exp(-lambda_ + k * std::log(lambda_) - std::lgamma(k + 1));
   }
 
-  std::unordered_map<int, double> pmf_map() const {
-    std::unordered_map<int, double> result;
+  template <typename T = int>
+  std::unordered_map<T, double> pmf_map() const {
+    std::unordered_map<T, double> result;
     bool started = false;
     for (int k = 0; true; ++k) {
       double p = pmf(k);
