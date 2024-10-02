@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "oniakDataStructure/ohist.h"
+#include "oniakMath/ostats.h"
 
 namespace Doro {
 constexpr double DoubleEpsilon = 1e-18;
@@ -27,14 +28,14 @@ public:
     std::unordered_map<T, double> result;
     for (int k = 0; true; ++k) {
       double p = pmf(k);
-      if (p < DoubleEpsilon)
+      if (p < DoubleEpsilon || std::isnan(p))
         break;
       else
         result[k] = p;
     }
     for (int k = -1; true; --k) {
       double p = pmf(k);
-      if (p < DoubleEpsilon)
+      if (p < DoubleEpsilon || std::isnan(p))
         break;
       else
         result[k] = p;
@@ -52,6 +53,15 @@ Skellam create_corrected_skellam(double lambda, double x) {
   return { mu, mu };
 }
 
+template <typename T>
+Skellam moment_fit_skellam(const std::vector<T>& data) {
+  auto [mean, variance] = ONIAK::sample_mean_variance(data);
+  double mu1 = (mean + variance) / 2;
+  double mu2 = (variance - mean) / 2;
+  if (mu2 < 0) mu2 = 0;
+  return {mu1, mu2};
+} 
+
 class Poisson {
 public:
   Poisson(double lambda) : lambda_(lambda) {}
@@ -66,7 +76,7 @@ public:
     bool started = false;
     for (int k = 0; true; ++k) {
       double p = pmf(k);
-      if (started && p < DoubleEpsilon) 
+      if (started && (p < DoubleEpsilon || std::isnan(p)))
         break;
       if (p >= DoubleEpsilon)
         started = true;

@@ -29,7 +29,13 @@
     "functional": "cpp",
     "valarray": "cpp",
     "iostream": "cpp",
-    "unordered_map": "cpp"
+    "unordered_map": "cpp",
+    "ranges": "cpp"
   },
-  "C_Cpp.errorSquiggles": "enabled"
+  "C_Cpp.errorSquiggles": "enabled",
+  "cmake.debugConfig": {
+    "args": [
+      "${workspaceFolder}/config/two_party.json"
+    ]
+  }
 }

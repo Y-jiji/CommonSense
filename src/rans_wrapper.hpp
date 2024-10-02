@@ -18,12 +18,16 @@ static const uint32_t prob_bits = 15, prob_scale = 1 << prob_bits;
 
 // Only the RansWrapper can edit RansCode.
 // Otherwise RansCode is read-only.
+//
+// In the default mode, the code_ only contains one symbol: the default one.
+// All other symbols (presumbed to be rare) are in extra_.
 class RansCode {
 public:
-  RansCode(int size) : code_(size, 0), offset_(size - 2) {}
+  RansCode(int size) : code_(size, 0), offset_(size - 2), default_mode_(false), data_length_(0) {}
+  // size is in terms of bytes.
   size_t size() const {
-    return code_.size() - offset_ +
-      extra_index_.size() * sizeof(int) + extra_.size();
+    return code_.size() - offset_ + 1 // default marker
+      + extra_index_.size() * 4 + extra_.size() + (default_mode_ ? 4 : 0); // four bytes for data length in default mode.
   }
   // raw codes not containing extra data.
   auto code_view() const { return std::views::all(code_) | std::views::drop(offset_); }
@@ -51,6 +55,9 @@ private:
   // extra data is the storage for data not in frequency table
   size_t offset_;
   std::vector<uint32_t> extra_index_;
+  bool default_mode_;
+  uint32_t data_length_; // length of data in default mode.
+
   template <typename T, typename VAL>
   friend class RansWrapper;
 };
@@ -58,7 +65,8 @@ private:
 template <typename T, typename VAL> // type to be compressed
 class RansWrapper {
 public:
-  explicit RansWrapper(const std::unordered_map<T, VAL>& frequencies) {
+  explicit RansWrapper(const std::unordered_map<T, VAL>& frequencies) 
+    : default_sym_(0), default_mode_(false) {
     if (frequencies.size() < 1) {
       throw std::invalid_argument("empty frequency map.");
     }
@@ -89,6 +97,7 @@ public:
         ++i;
         continue;
       }
+      default_sym_ = sym;  // in default mode, default_sym_ will be the only symbol with nonzero frequency.
       RansEncSymbol symbol;
       RansEncSymbolInit(&symbol, cum_freqs[i], freqs[i], prob_bits);
       esyms_[sym] = symbol;
@@ -101,16 +110,27 @@ public:
         ++j;
       }
     }
+    if (esyms_.size() == 1) default_mode_ = true;
   }
 
   RansCode encode(const std::vector<T>& data) const {
     RansState rans;
     RansEncInit(&rans);
-    size_t result_size = data.size() * sizeof(T) + 2;
+    size_t result_size = default_mode_ ? sizeof(T): data.size() * sizeof(T) + 2;
     RansCode result(result_size);
+    if (default_mode_) {
+      auto result_head = reinterpret_cast<T*>(result.data());
+      *result_head = default_sym_;
+      result.offset_ = 0;
+      result.default_mode_ = true;
+      result.data_length_ = data.size();
+    }
+
     uint8_t* ptr = result.data();
     for (int i = data.size()-1; i >= 0; --i) {
       const auto& sym = data[i];
+      // if symbol is not in frequency table
+      // In default mode, the frequency table only contains the default symbol.
       if (!esyms_.contains(sym)) {
         result.extra_index_.push_back(i);
         auto sym_raw = reinterpret_cast<const uint8_t*>(&sym);
@@ -118,12 +138,17 @@ public:
         // space to store this data and its index
         continue; 
       }
+      // In default mode, the default symbol is not encoded.
+      if (default_mode_) continue;
       RansEncPutSymbol(&rans, &ptr, &esyms_.at(sym));
       result.offset_ = ptr - result.begin();
       ptr = result.resize_if_full();
     }
-    RansEncFlush(&rans, &ptr);
-    result.offset_ = ptr - result.begin();
+    if (!default_mode_) {
+      RansEncFlush(&rans, &ptr);
+      result.offset_ = ptr - result.begin();
+    }
+    
     return result;
   }
 
@@ -132,20 +157,29 @@ public:
     const uint8_t* ptr = code.data();
     RansDecInit(&rans, &ptr);
     std::vector<T> result;
-    auto extra_index = code.extra_index_.begin();
-    const uint8_t* extra_ptr = code.extra_.data();
+    auto extra_index = code.extra_index_.end();
+    const uint8_t* extra_ptr = code.extra_.data() + code.extra_.size();
     while (true) {
-      if (extra_index != code.extra_index_.end() && *extra_index == result.size()) {
+      while (extra_index > code.extra_index_.begin() && *(extra_index-1) == result.size()) {
+        extra_index--;
+        extra_ptr -= sizeof(T);
         // symbol in extra list.
         result.push_back(*reinterpret_cast<const T*>(extra_ptr));
-        extra_ptr += sizeof(T);
-        ++extra_index;
       } 
-      uint32_t value = RansDecGet(&rans, prob_bits);
-      T sym = inverse_cum_.at(value);
-      RansDecAdvanceSymbol(&rans, &ptr, &dsyms_.at(sym), prob_bits);
-      if (ptr >= code.end()) {
-        break;
+      T sym;
+      if (code.default_mode_) {
+        sym = *reinterpret_cast<const T*>(code.data());
+        if (result.size() >= code.data_length_) {
+          break;
+        }
+      }
+      else {
+        uint32_t value = RansDecGet(&rans, prob_bits);
+        sym = inverse_cum_.at(value);
+        RansDecAdvanceSymbol(&rans, &ptr, &dsyms_.at(sym), prob_bits);
+        if (ptr >= code.end()) {
+          break;
+        }
       }
       result.push_back(sym);
     }
@@ -156,6 +190,8 @@ private:
   std::unordered_map<T, RansEncSymbol> esyms_;
   std::unordered_map<T, RansDecSymbol> dsyms_;
   std::vector<T> inverse_cum_;
+  T default_sym_;
+  bool default_mode_;
 };
 
 

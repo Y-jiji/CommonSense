@@ -24,9 +24,10 @@ using namespace nlohmann;
 
 enum class Party { Alis = 0, Bela = 1 };
 enum class Status { CollisionAvoiding = 0, CollisionResolving = 1, Finished = 2 };
+using CounterType = int8_t;
 
-bool get_sizes(const std::unordered_map<int, int>& result1,
-  const std::unordered_map<int, int>& result2, const std::unordered_set<int>& setA_minus_B, const std::unordered_set<int>& setB_minus_A,
+bool get_sizes(const std::unordered_map<int, CounterType>& result1,
+  const std::unordered_map<int, CounterType>& result2, const std::unordered_set<int>& setA_minus_B, const std::unordered_set<int>& setB_minus_A,
   json& config) {
   int A_minus_B_remaining_size = setA_minus_B.size(), B_minus_A_remaining_size = setB_minus_A.size(), A_intersect_B_remaining_size = 0;
   for (auto [key, value] : result1) {
@@ -97,8 +98,8 @@ int main(int argc, char* argv[]) {
   unordered_set<int> setA_minus_B(rand_vec.begin(), rand_vec.begin() + A_minus_B_size);
   unordered_set<int> setB_minus_A(rand_vec.begin() + A_size, rand_vec.end());
 
-  DoroCode doro(d, k, counting, rng);
-  unordered_map<int, int> ground_truth;
+  DoroCode<CounterType> doro(d, k, counting, rng);
+  unordered_map<int, CounterType> ground_truth;
   for (int i : rand_vec | views::take(A_minus_B_size)) {
     ground_truth[i] = -1;  // in Alis but not in Bela
   }
@@ -120,6 +121,7 @@ int main(int argc, char* argv[]) {
   double first_round_cost = (all_entropy - B_entropy) * d;
   config["comm costs"] = json::array({ first_round_cost });
   config["doro costs"] = json::array({ first_round_cost });
+  config["theoretical entropy costs"] = json::array({ first_round_cost });
   config["finger costs"] = json::array({ 0 });
   config["resolving costs"] = json::array({ 0 });
   config["time"] = json::array({});
@@ -127,6 +129,7 @@ int main(int argc, char* argv[]) {
   config["A minus B remaining"] = json::array({});
   config["B minus A remaining"] = json::array({});
   config["A intersect B remaining"] = json::array({});
+  config["correct decompression"] = json::array({});
 
   Party party = Party::Alis;
   if (s > 31) {
@@ -143,11 +146,11 @@ int main(int argc, char* argv[]) {
   WYHash resolving_hash(mask2, /*mode*/ 0, /*seed*/ rng());
 
   Status status = Status::CollisionAvoiding;
-  DoroDecoder<int32_t> decoder_alis(&finger_hash, &resolving_hash), decoder_bela(&finger_hash, &resolving_hash);
+  DoroDecoder<CounterType> decoder_alis(&finger_hash, &resolving_hash), decoder_bela(&finger_hash, &resolving_hash);
   DecodeConfig dconf_alis(tk, max_rounds, to, ta, /*verbose*/ false, /*debug*/ false, /*lb*/ -1, /*ub*/ 0, PursuitChoice::L2),
     dconf_bela(tk, max_rounds, to, ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, PursuitChoice::L2);
   StopWatch sw;
-  unordered_map<int, int> result_alis, result_bela;
+  unordered_map<int, CounterType> result_alis, result_bela;
   // elements whose fingerprints have been transmitted
   unordered_set<int> elements_alis, elements_bela;
   bool no_advance = false;
@@ -159,11 +162,11 @@ int main(int argc, char* argv[]) {
     // who is current decoder?
     party = (party == Party::Alis) ? Party::Bela : Party::Alis;
     const DecodeConfig& dconf = (party == Party::Alis) ? dconf_alis : dconf_bela;
-    DoroDecoder<int32_t>& decoder = (party == Party::Alis) ? decoder_alis : decoder_bela,
+    DoroDecoder<CounterType>& decoder = (party == Party::Alis) ? decoder_alis : decoder_bela,
       & other_decoder = (party == Party::Alis) ? decoder_bela : decoder_alis;
     unordered_set<int>& candidates = (party == Party::Alis) ? setA : setB;
-    unordered_map<int, int>* result;
-    unordered_map<int, int>& last_result = (party == Party::Alis) ? result_alis : result_bela;
+    unordered_map<int, CounterType>* result;
+    unordered_map<int, CounterType>& last_result = (party == Party::Alis) ? result_alis : result_bela;
     unordered_set<int>& elements = (party == Party::Alis) ? elements_alis : elements_bela;
     int num_peels = decoder.decode(&doro, candidates, &dconf, result);
 
@@ -174,9 +177,21 @@ int main(int argc, char* argv[]) {
       break;
     }
 
-    double empirical_entropy = entropy(frequency_count(doro.code()));
-    double doro_cost = empirical_entropy * d;
+    Skellam code_distribution = moment_fit_skellam(doro.code());
+    auto code_frequency = code_distribution.pmf_map<CounterType>();
+    double doro_cost = 0;
+    RansWrapper rans_wrapper(code_frequency);
+    RansCode doro_compressed_code = rans_wrapper.encode(doro.code());
+    auto decompressed_code = rans_wrapper.decode(doro_compressed_code);
+
+    double skellam_entropy = entropy(code_frequency);
+    double theoretical_entropy = skellam_entropy * d;
+    doro_cost = doro_compressed_code.size() * 8 + 64; 
+                                      // 8 bytes to transmit two Skellam parameters in float.
+    config["theoretical entropy costs"].push_back(theoretical_entropy);
     config["doro costs"].push_back(doro_cost);
+    config["correct decompression"].push_back(decompressed_code == doro.code());
+
     int new_extra_size = 0;
     for (auto [key, value] : *result) {
       if (value == 0) continue;

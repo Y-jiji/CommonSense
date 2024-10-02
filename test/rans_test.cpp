@@ -24,7 +24,7 @@ void test_routine(const std::vector<uint8_t>& message, const FrequencyType& freq
   cout << "Message size: " << message_size << " bytes" << endl;
   cout << "Compressed message size: " << code.size() << " bytes" << endl;
   cout << "Decompressed message size: " << decoded_message.size() << " bytes" << endl;
-  cout << "The decoded message is the same as the original message: " << (message == decoded_message) << endl;
+  cout << "The decoded message is the same as the original message: " << ((message == decoded_message)? "Success!": "Failure!") << endl;
   for (int i = 0; i < message_size; i++) {
     if (message[i] != decoded_message[i]) {
       cout << "Mismatch at index " << i << ": " << (int)message[i] << " != " << (int)decoded_message[i] << endl;
@@ -44,15 +44,22 @@ int main() {
   Skellam skellam(5, 10);
   // std::geometric_distribution<uint8_t> poisson_dis(0.1);
 
-  std::vector<uint8_t> message1(message_size), message2(message_size), message3(message_size);
+  std::vector<uint8_t> message1(message_size), message2(message_size), message3(message_size), message4(message_size);
   for (int i = 0; i < message_size; i++) {
     message1[i] = dis(gen);
     message2[i] = poisson_dis(gen);
     message3[i] = poisson_dis2(gen) - poisson_dis(gen);
+    message4[i] = 0;
   }
-  message1[320] = 144;  // unexpected symbol
+
+  message4[24] = 39;
+  message4[25] = 39;
+  message4[26] = 39;
 
   auto frequencies = frequency_count(message1);
+  message1[320] = 144;  // unexpected symbol
+  message1[321] = 128;
+  message1[322] = 167;
   test_routine(message1, frequencies);
   
   auto frequencies2 = poisson.pmf_map<uint8_t>();
@@ -60,5 +67,8 @@ int main() {
 
   frequencies2 = skellam.pmf_map<uint8_t>();
   test_routine(message3, frequencies2);
+
+  frequencies = {{0, 1}};  // degenerated frequency table, test default mode.
+  test_routine(message1, frequencies);
   return 0;
 }

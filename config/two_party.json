@@ -20,5 +20,5 @@
   "max comm rounds": 40,
   "counting": true,
   "to": 6,
-  "result filename": "../result/two_party/test.json"
+  "result filename": "../result/decomp/test.json"
 }
