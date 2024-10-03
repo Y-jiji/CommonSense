@@ -50,6 +50,19 @@ bool get_sizes(const std::unordered_map<int, CounterType>& result1,
   return A_minus_B_remaining_size == 0 && B_minus_A_remaining_size == 0 && A_intersect_B_remaining_size == 0;
 }
 
+template <typename T>
+Skellam moment_fit_skellam(const DoroCode<T>& code) {
+  auto [mean, variance] = ONIAK::sample_mean_variance(code.code());
+  double mu1, mu2;
+  if (code.is_cbf()) {
+    mu1 = (mean + variance) / 2.0;
+    mu2 = (variance - mean) / 2.0;
+    if (mu2 < 0) mu2 = 0;
+  } else {
+    mu1 = mu2 = variance / 2.0;
+  }
+  return {mu1, mu2};
+} 
 
 int main(int argc, char* argv[]) {
   if (argc < 2) {
@@ -177,7 +190,7 @@ int main(int argc, char* argv[]) {
       break;
     }
 
-    Skellam code_distribution = moment_fit_skellam(doro.code());
+    Skellam code_distribution = moment_fit_skellam(doro);
     auto code_frequency = code_distribution.pmf_map<CounterType>();
     double doro_cost = 0;
     RansWrapper rans_wrapper(code_frequency);

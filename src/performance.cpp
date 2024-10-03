@@ -1,5 +1,6 @@
 #include "doro.hpp"
 #include "decoder.hpp"
+#include "probability.hpp"
 
 #include "oniakRandom/orand.h"
 #include "oniakTimer/otime.h"
@@ -14,6 +15,10 @@
 using namespace std;
 using namespace Doro;
 using namespace ONIAK;
+
+
+
+
 int main()
 {
   mt19937 rng(0);

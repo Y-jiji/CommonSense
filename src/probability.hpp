@@ -53,14 +53,6 @@ Skellam create_corrected_skellam(double lambda, double x) {
   return { mu, mu };
 }
 
-template <typename T>
-Skellam moment_fit_skellam(const std::vector<T>& data) {
-  auto [mean, variance] = ONIAK::sample_mean_variance(data);
-  double mu1 = (mean + variance) / 2;
-  double mu2 = (variance - mean) / 2;
-  if (mu2 < 0) mu2 = 0;
-  return {mu1, mu2};
-} 
 
 class Poisson {
 public:

@@ -129,6 +129,7 @@ public:
   }
 
   std::vector<ArrType>& code() { return arr_; }
+  const std::vector<ArrType>& code() const { return arr_; }
 
   int k() const { return k_; }
   int num_peels() const { return num_peels_; }
@@ -149,6 +150,8 @@ public:
     int sign = (is_cbf_ || hash_value < size()) ? 1 : -1;
     return { idx, sign };
   }
+
+  bool is_cbf() const { return is_cbf_; }
 
   bool empty() const {
     return std::all_of(arr_.begin(), arr_.end(), [](ArrType val) { return val == 0; });
