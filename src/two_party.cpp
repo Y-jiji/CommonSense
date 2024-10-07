@@ -197,7 +197,6 @@ int main(int argc, char* argv[]) {
     RansWrapper rans_wrapper(code_frequency);
     RansCode doro_compressed_code = rans_wrapper.encode(doro.code());
     auto decompressed_code = rans_wrapper.decode(doro_compressed_code);
-    assert(doro.code() == decompressed_code); // compression should be lossless
 
     double skellam_entropy = entropy(frequency_count(doro.code()));
     double theoretical_entropy = skellam_entropy * d;
@@ -207,7 +206,7 @@ int main(int argc, char* argv[]) {
     config["doro costs"].push_back(doro_cost);
     config["correct decompression"].push_back(decompressed_code == doro.code());
 
-    int new_extra_size = 0;
+    int new_extra_size = 0;  // number of new elements decoded in this round
     for (auto [key, value] : *result) {
       if (value == 0) continue;
       if (!elements.contains(key)) {

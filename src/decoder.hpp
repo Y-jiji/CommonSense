@@ -26,7 +26,7 @@ struct DecodeConfig {
   int tk, max_stage; // used for stage decode.
   // tk is stage size
   int to; // minimum signal strength for decoding
-          // if to is minus, then any strength is valid as long as delta > 0
+  // if to is minus, then any strength is valid as long as delta > 0
   int ta; // terminate if any element thrashes for ta times.
   bool verbose, debug;
   // lower and upper bound of value range
@@ -70,27 +70,13 @@ public:
         colliding_compensation = -2;
       priority_queue_.set(element, new_strength2(element, strength, delta, code_->k() + colliding_compensation));
 
-      std::unordered_map<int, int> affected_neighbors;
+      affected_neighbors_.clear();
       for (int i : std::views::iota(0, code_->k())) {
         auto [index, sign] = code_->hash(i, element);
-        std::vector<int>& pos_neighbors = (sign > 0) ? neighbors_[index] : neighbors2_[index];
-        std::vector<int>& neg_neighbors = (sign < 0) ? neighbors_[index] : neighbors2_[index];
-        for (int neighbor : pos_neighbors) {
-          if (neighbor == element) continue;
-          auto neighbor_iter = affected_neighbors.find(neighbor);
-          affected_neighbors[neighbor] = (neighbor_iter != affected_neighbors.end()) ? neighbor_iter->second + 1 : 1;
-        }
-        for (int neighbor : neg_neighbors) {
-          if (neighbor == element) continue;
-          auto neighbor_iter = affected_neighbors.find(neighbor);
-          affected_neighbors[neighbor] = (neighbor_iter != affected_neighbors.end()) ? neighbor_iter->second - 1 : -1;
-        }
+        notify_neighbors(element, index, sign * delta);
       }
-      for (auto [neighbor, neighbor_cnt] : affected_neighbors) {
-        ArrType neighbor_strength = new_strength2(neighbor, priority_queue_[neighbor], delta, neighbor_cnt);
-        ArrType neighbor_delta = strength_to_delta(neighbor, neighbor_strength);
-        add_to_priority_queue(neighbor, neighbor_strength, neighbor_delta);
-      }
+      update_neighbor_strengths();
+
       if (config_->verbose) {
         std::cout << std::format("thrash: {}, power: {}, element: {}, cur_element_value: {}, delta: {}\n",
           thrash, strength, element, cur_element_value, delta);
@@ -131,7 +117,7 @@ public:
       ArrType delta = strength_to_delta(element, strength);
       add_to_priority_queue(element, strength, delta);
     }
-    
+
     new_elements_.clear();
     peel_until_empty();
 
@@ -179,13 +165,13 @@ public:
 
     for (size_t i = 0; i < other.unresolved_elements_.size(); ++i) {
       auto [finger1, finger2] = other.unresolved_elements_.at(i);
-      auto [finger_iter, iter_end] = my_fingerprints_.equal_range(finger1); 
+      auto [finger_iter, iter_end] = my_fingerprints_.equal_range(finger1);
       for (; finger_iter != iter_end; ++finger_iter) {
         int element = finger_iter->second;
         int other_element = other.unresolved_ids_[i];
-        int f2_element = (*resolving_hash_)(element); 
+        int f2_element = (*resolving_hash_)(element);
         if (f2_element == finger2) {  // collision detected, reverting
-        // CAUTION: if there is any collision with finger2, then set reconciliation would fail.
+          // CAUTION: if there is any collision with finger2, then set reconciliation would fail.
           ++num_collisions;
           ArrType cur_value = result_.at(element);
           ArrType other_value = other.result_.at(other_element);
@@ -281,19 +267,45 @@ private:
   ArrType new_strength2(int element, ArrType strength, ArrType delta, int k) const {
     bool is_l2 = config_->pursuit_choice == PursuitChoice::L2;
     ArrType new_str = is_l2 ? strength - delta * k : code_->sense_l1(element);
-    assert(!is_l2 || new_str == code_->sense(element)); 
-        // the bookkeeping of strengths should always be correct
+    assert(!is_l2 || new_str == code_->sense(element));
+    // the bookkeeping of strengths should always be correct
     return new_str;
   }
 
+  void notify_neighbors(int exclude_element, int counter_idx, ArrType strength_change) {
+    for (int neighbor : neighbors_[counter_idx]) {
+      if (neighbor == exclude_element) continue; // exclude_element has been separately considered
+      auto neighbor_iter = affected_neighbors_.find(neighbor);
+      affected_neighbors_[neighbor] =
+        (neighbor_iter != affected_neighbors_.end()) ? neighbor_iter->second + strength_change : strength_change;
+    }
+    for (int neighbor : neighbors2_[counter_idx]) {
+      if (neighbor == exclude_element) continue;
+      auto neighbor_iter = affected_neighbors_.find(neighbor);
+      affected_neighbors_[neighbor] =
+        (neighbor_iter != affected_neighbors_.end()) ? neighbor_iter->second - strength_change : -strength_change;
+    }
+  }
+
+  void update_neighbor_strengths() {
+    for (auto [neighbor, strength_change] : affected_neighbors_) {
+      ArrType neighbor_strength = new_strength2(neighbor, priority_queue_[neighbor], strength_change, 1);
+      ArrType neighbor_delta = strength_to_delta(neighbor, neighbor_strength);
+      add_to_priority_queue(neighbor, neighbor_strength, neighbor_delta);
+    }
+    affected_neighbors_.clear();
+  }
+
   DoroCodeT* code_;
-  ONIAK::WYHash* finger_hash_, *resolving_hash_;
+  ONIAK::WYHash* finger_hash_, * resolving_hash_;
   TwoDimVector neighbors_, neighbors2_;
   std::unordered_map<int, ArrType> result_;
   std::unordered_set<int> fingerprints_;
   std::unordered_set<int> colliding1_, colliding2_;
   std::unordered_set<int> new_elements_;
   std::unordered_map<int, int> thrashing_;
+  // a buffer that stores all affected neighbors in case of code counter updates.
+  std::unordered_map<int, ArrType> affected_neighbors_;   // <id, delta>
   std::unordered_multimap<int, int> my_fingerprints_;
   UpdatePQ priority_queue_;
   const DecodeConfig* config_;

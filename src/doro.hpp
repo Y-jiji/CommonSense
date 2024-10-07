@@ -71,10 +71,10 @@ public:
     return signal;
   }
 
-  // recenter all counters so that they all lie in [lb, ub)
+  // recenter a counter so that it lies in [lb, ub)
   ArrType recenter(ArrType x) {
     x -= std::floor(static_cast<float>(x - lb_) / interval_) * interval_;
-    assert(x >=lb_ && x < ub_);
+    assert(x >= lb_ && x < ub_);
     return x;
   }
 
