@@ -3,6 +3,7 @@
 #include "probability.hpp"
 #include "rans_wrapper.hpp"
 
+#include <oniakDataStructure/ohist.h>
 #include "oniakRandom/orand.h"
 #include "oniakTimer/otime.h"
 #include "nlohmann/json.hpp"
@@ -196,8 +197,9 @@ int main(int argc, char* argv[]) {
     RansWrapper rans_wrapper(code_frequency);
     RansCode doro_compressed_code = rans_wrapper.encode(doro.code());
     auto decompressed_code = rans_wrapper.decode(doro_compressed_code);
+    assert(doro.code() == decompressed_code); // compression should be lossless
 
-    double skellam_entropy = entropy(code_frequency);
+    double skellam_entropy = entropy(frequency_count(doro.code()));
     double theoretical_entropy = skellam_entropy * d;
     doro_cost = doro_compressed_code.size() * 8 + 64; 
                                       // 8 bytes to transmit two Skellam parameters in float.

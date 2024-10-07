@@ -48,10 +48,173 @@ public:
     ), collision_resolving_(false) {
   }
 
-  void peel_until_empty() {
+  int stage_decode(
+    DoroCodeT* code,
+    const std::vector<int>& setA, /*possible candidates of code*/
+    const DecodeConfig* config,
+    std::unordered_map<int, ArrType>*& result) {
+    code_ = code;
+    config_ = config;
+    thrashing_.clear();
+    result = &result_;
+    bool is_l2 = config_->pursuit_choice == PursuitChoice::L2; // else is l1
+    for (int element : setA) {
+      thrashing_[element] = 0;
+    }
+
+    for (int rnd : std::views::iota(0, config_->max_stage)) {
+      std::vector<std::tuple<ArrType, int, ArrType>> signals;
+      for (auto element_thrash : thrashing_) {
+        int element = element_thrash.first;
+        ArrType strength = is_l2 ? code_->sense(element) : code_->sense_l1(element);
+        ArrType delta = strength_to_delta(element, strength);
+        if (std::abs(delta) > 1e-6)
+          signals.emplace_back(-std::abs(strength), element, delta);
+      }
+      std::nth_element(signals.begin(), signals.begin() + config_->tk, signals.end());
+      if (signals.size() > static_cast<size_t>(config_->tk))
+        signals.resize(config_->tk);
+      bool finished = true;
+      for (auto [power, element, delta] : signals) {
+        finished = false;
+        int thrash = thrashing_.find(element)->second;
+        if (thrash > config_->ta) {
+          finished = true;
+          break;
+        }
+        thrashing_[element] = thrash + 1;
+        code_->peel(element, delta);
+        auto cur_iter = result_.find(element);
+        ArrType cur_element_value = (cur_iter != result_.end()) ? cur_iter->second : 0;
+        result_[element] = cur_element_value + delta;
+
+        if (config_->verbose) {
+          std::cout << std::format("thrash: {}, power: {}, element: {}, cur_element_value: {}, delta: {}\n",
+            thrash, power, element, cur_element_value, delta);
+        }
+      }
+      if (config_->verbose) {
+        std::cout << std::format("Round: {}\n", rnd);
+        code_->show_result();
+      }
+      if (finished)
+        return rnd;
+    }
+    return config_->max_stage;
+  }
+
+  int decode_resense(
+    DoroCodeT* code,
+    const std::vector<int>& setA, /*possible candidates of code*/
+    const DecodeConfig* config,
+    std::unordered_map<int, ArrType>*& result) {
+    code_ = code;
+    config_ = config;
+    thrashing_.clear();
+    result = &result_;
+    neighbors_.assign(code_->size(), {});
+    priority_queue_.clear();
+    bool is_l2 = config_->pursuit_choice == PursuitChoice::L2; // else is l1
+
+    for (int element : setA) {
+      for (int i : std::views::iota(0, code_->k())) {
+        auto [index, sign] = code_->hash(i, element);
+        neighbors_[index].push_back(element);
+      }
+      ArrType strength = is_l2 ? code_->sense(element) : code_->sense_l1(element);
+      ArrType delta = strength_to_delta(element, strength);
+
+      if (std::abs(delta) > 1e-6) {
+        priority_queue_.push(element, strength);
+      }
+      else
+        priority_queue_.set(element, strength);
+      // priority_queue_.push(element, code_->sense(element));
+    }
+
     while (!priority_queue_.empty()) {
       auto [strength, element] = priority_queue_.top();
-      new_elements_.insert(element);
+      auto thrash_iter = thrashing_.find(element);
+      int thrash = (thrash_iter != thrashing_.end()) ? thrash_iter->second : 0;
+      if (thrash > config_->ta) break;
+      thrashing_[element] = thrash + 1;
+
+      ArrType delta = strength_to_delta(element, strength);
+      code_->peel(element, delta);
+      auto cur_iter = result_.find(element);
+      ArrType cur_element_value = (cur_iter != result_.end()) ? cur_iter->second : 0;
+      result_[element] = cur_element_value + delta;
+      priority_queue_.pop();
+      priority_queue_.set(element, new_strength(element, strength, delta, code_->k()));
+
+      std::vector<int> affected_neighbors;
+      for (int i : std::views::iota(0, code_->k())) {
+        auto [index, sign] = code_->hash(i, element);
+        affected_neighbors.insert(affected_neighbors.end(), neighbors_[index].begin(), neighbors_[index].end());
+      }
+      // There may be duplicates.
+      std::sort(affected_neighbors.begin(), affected_neighbors.end());
+      for (size_t i : std::views::iota(0u, affected_neighbors.size())) {
+        int neighbor = affected_neighbors[i];
+        int neighbor_cnt = 1;
+        if (neighbor == element)  continue;
+        while (i < affected_neighbors.size() - 1 && neighbor == affected_neighbors[i + 1]) {
+          ++neighbor_cnt;
+          ++i;
+        }
+        ArrType neighbor_strength = new_strength(neighbor, priority_queue_[neighbor], delta, neighbor_cnt);
+        ArrType neighbor_delta = strength_to_delta(neighbor, neighbor_strength);
+        if (std::abs(neighbor_delta) > 1e-6)
+          priority_queue_.update(neighbor, neighbor_strength);
+        else
+          priority_queue_.set(neighbor, neighbor_strength);
+      }
+      if (config_->verbose) {
+
+        std::cout << std::format("thrash: {}, power: {}, element: {}, cur_element_value: {}, delta: {}, sl: {}\n",
+          thrash, strength, element, cur_element_value, delta, priority_queue_.size());
+        code_->show_result();
+      }
+    }
+    return code_->num_peels();
+  }
+
+  int decode(
+    DoroCodeT* code,
+    const std::unordered_set<int>& setA, /*possible candidates of code*/
+    const DecodeConfig* config,
+    std::unordered_map<int, ArrType>*& result) {
+    code_ = code;
+    config_ = config;
+    thrashing_.clear();
+    result = &result_;
+    neighbors_.assign(code_->size(), {});
+    neighbors2_.assign(code_->size(), {});
+    priority_queue_.clear();
+    colliding1_.clear();
+    colliding2_.clear();
+    bool is_l2 = config_->pursuit_choice == PursuitChoice::L2; // else is l1
+
+    for (int element : setA) {
+      for (int i : std::views::iota(0, code_->k())) {
+        auto [index, sign] = code_->hash(i, element);
+        if (sign > 0)
+          neighbors_[index].push_back(element);
+        else neighbors2_[index].push_back(element);
+      }
+      int colliding = code_->is_colliding(element);
+      if (colliding == 1)
+        colliding1_.insert(element);
+      else if (colliding == 2)
+        colliding2_.insert(element);
+      ArrType strength = is_l2 ? code_->sense(element) : code_->sense_l1(element);
+      ArrType delta = strength_to_delta(element, strength);
+      add_to_priority_queue(element, strength, delta);
+    }
+    std::unordered_set<int> new_elements;
+    while (!priority_queue_.empty()) {
+      auto [strength, element] = priority_queue_.top();
+      new_elements.insert(element);
       auto thrash_iter = thrashing_.find(element);
       int thrash = (thrash_iter != thrashing_.end()) ? thrash_iter->second : 0;
       if (thrash > config_->ta) break;
@@ -97,48 +260,11 @@ public:
         code_->show_result();
       }
     }
-  }
-
-  int decode(
-    DoroCodeT* code,
-    const std::unordered_set<int>& setA, /*possible candidates of code*/
-    const DecodeConfig* config,
-    std::unordered_map<int, ArrType>*& result) {
-    code_ = code;
-    config_ = config;
-    thrashing_.clear();
-    result = &result_;
-    neighbors_.assign(code_->size(), {});
-    neighbors2_.assign(code_->size(), {});
-    priority_queue_.clear();
-    colliding1_.clear();
-    colliding2_.clear();
-    bool is_l2 = config_->pursuit_choice == PursuitChoice::L2; // else is l1
-
-    for (int element : setA) {
-      for (int i : std::views::iota(0, code_->k())) {
-        auto [index, sign] = code_->hash(i, element);
-        if (sign > 0)
-          neighbors_[index].push_back(element);
-        else neighbors2_[index].push_back(element);
-      }
-      int colliding = code_->is_colliding(element);
-      if (colliding == 1)
-        colliding1_.insert(element);
-      else if (colliding == 2)
-        colliding2_.insert(element);
-      ArrType strength = is_l2 ? code_->sense(element) : code_->sense_l1(element);
-      ArrType delta = strength_to_delta(element, strength);
-      add_to_priority_queue(element, strength, delta);
-    }
-    
-    new_elements_.clear();
-    peel_until_empty();
 
     unresolved_elements_.clear();
     unresolved_ids_.clear();
     if (collision_resolving_ && finger_hash_ != nullptr && resolving_hash_ != nullptr) {
-      for (auto key : new_elements_) {
+      for (auto key : new_elements) {
         if (std::abs(result_.at(key)) > 1e-6) {
           int finger1 = (*finger_hash_)(key);
           if (fingerprints_.contains(finger1)) {
@@ -292,7 +418,6 @@ private:
   std::unordered_map<int, ArrType> result_;
   std::unordered_set<int> fingerprints_;
   std::unordered_set<int> colliding1_, colliding2_;
-  std::unordered_set<int> new_elements_;
   std::unordered_map<int, int> thrashing_;
   std::unordered_multimap<int, int> my_fingerprints_;
   UpdatePQ priority_queue_;

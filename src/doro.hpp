@@ -22,7 +22,9 @@ public:
   using PairType = std::pair<IndexType, ArrType>;
 
   template <typename RandomDevice>
-  DoroCode(int size, int k, bool is_cbf, RandomDevice& rng) : arr_(size), is_cbf_(is_cbf), k_(k), num_peels_(0), num_correct_peels_(0) {
+  DoroCode(int size, int k, bool is_cbf, RandomDevice& rng, int lb = 0, int ub=0) :
+   arr_(size), is_cbf_(is_cbf), k_(k), num_peels_(0), num_correct_peels_(0),
+   lb_(lb), ub_(ub), interval_(ub-lb) {
     hash_funcs_.reserve(k_);
     for ([[maybe_unused]] int i : std::views::iota(0, k_)) {
       hash_funcs_.emplace_back(/*mask*/ 0, /*mod*/ 2 * size, /*seed*/ rng());
@@ -67,6 +69,13 @@ public:
       signal += sign * arr_[index];
     }
     return signal;
+  }
+
+  // recenter all counters so that they all lie in [lb, ub)
+  ArrType recenter(ArrType x) {
+    x -= std::floor(static_cast<float>(x - lb_) / interval_) * interval_;
+    assert(x >=lb_ && x < ub_);
+    return x;
   }
 
   // Returns median signal. If k_ is even, returns the smaller one in absolute value.
@@ -165,6 +174,10 @@ private:
   bool is_cbf_; // cbf: counting Bloom filter
   std::vector<ONIAK::WYHash> hash_funcs_;
   int k_, num_peels_, num_correct_peels_;
+  // [lower bounds, and upper bounds) in quantization
+  // if lb >= ub, then quantization is not in effect.
+  ArrType lb_, ub_;
+  float interval_; // ub - lb
 };
 
 } // namespace Doro
