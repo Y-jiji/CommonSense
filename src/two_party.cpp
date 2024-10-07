@@ -59,11 +59,12 @@ Skellam moment_fit_skellam(const DoroCode<T>& code) {
     mu1 = (mean + variance) / 2.0;
     mu2 = (variance - mean) / 2.0;
     if (mu2 < 0) mu2 = 0;
-  } else {
+  }
+  else {
     mu1 = mu2 = variance / 2.0;
   }
-  return {mu1, mu2};
-} 
+  return { mu1, mu2 };
+}
 
 int main(int argc, char* argv[]) {
   if (argc < 2) {
@@ -94,12 +95,16 @@ int main(int argc, char* argv[]) {
   if (config.contains("ta")) ta = config.at("ta");
   int to = -1;
   if (config.contains("to")) to = config.at("to");
+  int lb = 0;
+  if (config.contains("lb")) lb = config.at("lb");
+  int ub = 0;
+  if (config.contains("ub")) ub = config.at("ub");
   std::string save_path = config.at("result filename");
   int max_rounds = 1'0000'0000;
   if (config.contains("max rounds")) max_rounds = config.at("max rounds");
   int max_comm_rounds = 20;
   if (config.contains("max comm rounds")) max_comm_rounds = config.at("max comm rounds");
-  int resolving_round = max_comm_rounds;  // at this round, always start resolving
+  int resolving_round = max_comm_rounds - 5;  // at this round, always start resolving
   if (config.contains("resolving round")) resolving_round = config.at("resolving round");
   bool counting = config.at("counting");
 
@@ -112,7 +117,7 @@ int main(int argc, char* argv[]) {
   unordered_set<int> setA_minus_B(rand_vec.begin(), rand_vec.begin() + A_minus_B_size);
   unordered_set<int> setB_minus_A(rand_vec.begin() + A_size, rand_vec.end());
 
-  DoroCode<CounterType> doro(d, k, counting, rng);
+  DoroCode<CounterType> doro(d, k, counting, rng, lb, ub);
   unordered_map<int, CounterType> ground_truth;
   for (int i : rand_vec | views::take(A_minus_B_size)) {
     ground_truth[i] = -1;  // in Alis but not in Bela
@@ -144,6 +149,7 @@ int main(int argc, char* argv[]) {
   config["B minus A remaining"] = json::array({});
   config["A intersect B remaining"] = json::array({});
   config["correct decompression"] = json::array({});
+  config["number of recenters"] = 0;
 
   Party party = Party::Alis;
   if (s > 31) {
@@ -200,8 +206,8 @@ int main(int argc, char* argv[]) {
 
     double skellam_entropy = entropy(frequency_count(doro.code()));
     double theoretical_entropy = skellam_entropy * d;
-    doro_cost = doro_compressed_code.size() * 8 + 64; 
-                                      // 8 bytes to transmit two Skellam parameters in float.
+    doro_cost = doro_compressed_code.size() * 8 + 64;
+    // 8 bytes to transmit two Skellam parameters in float.
     config["theoretical entropy costs"].push_back(theoretical_entropy);
     config["doro costs"].push_back(doro_cost);
     config["correct decompression"].push_back(decompressed_code == doro.code());
@@ -235,6 +241,7 @@ int main(int argc, char* argv[]) {
 
     config["time"].push_back(sw.peek());
     config["num peels"].push_back(doro.num_peels());
+    config["number of recenters"] = doro.num_recenters();
 
     if (decoder.result() == last_result || comm_rounds == resolving_round) {
       if (status == Status::CollisionAvoiding) {

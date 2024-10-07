@@ -68,12 +68,12 @@ public:
         colliding_compensation = 2;
       else if (colliding2_.contains(element))
         colliding_compensation = -2;
-      priority_queue_.set(element, new_strength2(element, strength, delta, code_->k() + colliding_compensation));
+      priority_queue_.set(element, new_strength2(element, strength, -delta, code_->k() + colliding_compensation));
 
       affected_neighbors_.clear();
       for (int i : std::views::iota(0, code_->k())) {
         auto [index, sign] = code_->hash(i, element);
-        notify_neighbors(element, index, sign * delta);
+        notify_neighbors(element, index, -sign * delta);  // minus because the counter is reduced by delta
       }
       update_neighbor_strengths();
 
@@ -118,8 +118,15 @@ public:
       add_to_priority_queue(element, strength, delta);
     }
 
+    // peel the counters until nothing can be done.
     new_elements_.clear();
-    peel_until_empty();
+    size_t last_new_element_size = -1;
+    while (last_new_element_size != new_elements_.size()) {
+      last_new_element_size = new_elements_.size();
+      peel_until_empty();
+      if (collision_resolving_) recenter_code();
+      else break;
+    }
 
     unresolved_elements_.clear();
     unresolved_ids_.clear();
@@ -218,6 +225,7 @@ public:
 
   void add_to_priority_queue(int element, ArrType strength, ArrType delta) {
     // if fingerprint mechanism is active, then this element must not collide with any known fingerprint
+    // this is set to avoid the case in which one party adds an element, and another party subtracts it.
     bool fingerprint_condition = (finger_hash_ == nullptr) || !fingerprints_.contains((*finger_hash_)(element));
     bool to_condition = (config_->to < 0) || (std::abs(strength) >= config_->to);
     bool delta_condition = (std::abs(delta) > 1e-6);
@@ -266,7 +274,7 @@ private:
 
   ArrType new_strength2(int element, ArrType strength, ArrType delta, int k) const {
     bool is_l2 = config_->pursuit_choice == PursuitChoice::L2;
-    ArrType new_str = is_l2 ? strength - delta * k : code_->sense_l1(element);
+    ArrType new_str = is_l2 ? strength + delta * k : code_->sense_l1(element);
     assert(!is_l2 || new_str == code_->sense(element));
     // the bookkeeping of strengths should always be correct
     return new_str;
@@ -294,6 +302,22 @@ private:
       add_to_priority_queue(neighbor, neighbor_strength, neighbor_delta);
     }
     affected_neighbors_.clear();
+  }
+
+  // in case of quantization error, recenter all counters to within the range [lb, ub)
+  void recenter_code() {
+    affected_neighbors_.clear();
+    for (int i : std::views::iota(0, code_->size())) {
+      ArrType cur_value = code_->code()[i];
+      ArrType new_value = code_->recenter(cur_value);
+      ArrType delta = new_value - cur_value;
+      if (std::abs(delta) > 1e-6) {
+        code_->code()[i] = new_value;
+        ++code_->num_recenters();
+        notify_neighbors(-1, i, delta);  
+      }
+    }
+    update_neighbor_strengths();
   }
 
   DoroCodeT* code_;

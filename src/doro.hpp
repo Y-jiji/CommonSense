@@ -24,7 +24,7 @@ public:
   template <typename RandomDevice>
   DoroCode(int size, int k, bool is_cbf, RandomDevice& rng, int lb = 0, int ub=0) :
    arr_(size), is_cbf_(is_cbf), k_(k), num_peels_(0), num_correct_peels_(0),
-   lb_(lb), ub_(ub), interval_(ub-lb) {
+    num_recenters_(0), lb_(lb), ub_(ub), interval_(ub-lb) {
     hash_funcs_.reserve(k_);
     for ([[maybe_unused]] int i : std::views::iota(0, k_)) {
       hash_funcs_.emplace_back(/*mask*/ 0, /*mod*/ 2 * size, /*seed*/ rng());
@@ -73,6 +73,7 @@ public:
 
   // recenter a counter so that it lies in [lb, ub)
   ArrType recenter(ArrType x) {
+    if (interval_ <= 0) return x;   // never recenters
     x -= std::floor(static_cast<float>(x - lb_) / interval_) * interval_;
     assert(x >= lb_ && x < ub_);
     return x;
@@ -129,6 +130,7 @@ public:
     arr_.assign(size(), 0);
     num_peels_ = 0;
     num_correct_peels_ = 0;
+    num_recenters_ = 0;
     values_ = {};
     encode(std::move(ground_truth_));
   }
@@ -144,6 +146,7 @@ public:
   int num_peels() const { return num_peels_; }
   int& num_peels() { return num_peels_; }
   int& num_correct_peels() { return num_correct_peels_; }
+  int& num_recenters() { return num_recenters_; }
 
   void show_result() const {
     std::cout << "Number of peels: " << num_peels_ << std::endl;
@@ -173,7 +176,7 @@ private:
   // If is_cbf_ is true, then all hashed signs are positive.
   bool is_cbf_; // cbf: counting Bloom filter
   std::vector<ONIAK::WYHash> hash_funcs_;
-  int k_, num_peels_, num_correct_peels_;
+  int k_, num_peels_, num_correct_peels_, num_recenters_;
   // [lower bounds, and upper bounds) in quantization
   // if lb >= ub, then quantization is not in effect.
   ArrType lb_, ub_;

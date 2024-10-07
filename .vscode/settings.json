@@ -30,7 +30,14 @@
     "valarray": "cpp",
     "iostream": "cpp",
     "unordered_map": "cpp",
-    "ranges": "cpp"
+    "ranges": "cpp",
+    "chrono": "cpp",
+    "limits": "cpp",
+    "regex": "cpp",
+    "type_traits": "cpp",
+    "tuple": "cpp",
+    "sparsetable": "cpp",
+    "format": "cpp"
   },
   "C_Cpp.errorSquiggles": "enabled",
   "cmake.debugConfig": {
