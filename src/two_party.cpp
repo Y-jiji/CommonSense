@@ -4,6 +4,7 @@
 #include "rans_wrapper.hpp"
 
 #include <oniakDataStructure/ohist.h>
+#include "oniakDebug/odebug.h"
 #include "oniakRandom/orand.h"
 #include "oniakTimer/otime.h"
 #include "nlohmann/json.hpp"
@@ -58,9 +59,11 @@ Skellam moment_fit_skellam(const DoroCode<T>& code) {
   if (code.is_cbf()) {
     mu1 = (mean + variance) / 2.0;
     mu2 = (variance - mean) / 2.0;
+    if (mu1 < 0) mu1 = 0;
     if (mu2 < 0) mu2 = 0;
   }
   else {
+    if (variance < 0) variance = 0;
     mu1 = mu2 = variance / 2.0;
   }
   return { mu1, mu2 };
@@ -76,14 +79,29 @@ int main(int argc, char* argv[]) {
 
   size_t seed = 0;
   if (config.contains("seed")) seed = config.at("seed");
-  int universe = config.at("universe");
+
   int A_size = config.at("A size");
   int B_size = config.at("B size");
   int A_minus_B_size = A_size - B_size;
   if (config.contains("A minus B size")) A_minus_B_size = config.at("A minus B size");
+  int A_minus_B_size_minimum = std::max(0, A_size - B_size);
+  if (A_minus_B_size < A_minus_B_size_minimum) {
+    cout << "Warning: A_minus_B_size is too small. Reset to minimum possible value." << endl;
+    A_minus_B_size = A_minus_B_size_minimum;
+  }
+  if (A_minus_B_size > A_size) {
+    cout << "Warning: A_minus_B_size is larger than A_size. Reset to A_size." << endl;
+    A_minus_B_size = A_size;
+  }
   int A_union_B_size = B_size + A_minus_B_size;
   int A_intersect_B_size = A_size - A_minus_B_size;
   int B_minus_A_size = B_size - A_intersect_B_size;
+  int universe = config.at("universe");
+  if (universe < A_union_B_size) {
+    cout << "Warning: universe size is less than A_union_B_size. Reset to A_union_B_size." << endl;
+    universe = A_union_B_size;
+  }
+
   int k = config.at("k");
   int d = config.at("d");
   int s = config.at("s");   // signature size
@@ -118,14 +136,34 @@ int main(int argc, char* argv[]) {
   unordered_set<int> setB_minus_A(rand_vec.begin() + A_size, rand_vec.end());
 
   DoroCode<CounterType> doro(d, k, counting, rng, lb, ub);
-  unordered_map<int, CounterType> ground_truth;
+  DoroCode<CounterType> first_round_code(d, k, counting, rng, lb, ub);
+  unordered_map<int, CounterType> ground_truth, first_round_gt;
+  for (int i : rand_vec | views::take(A_size)) {
+    first_round_gt[i] = 1;
+  }
   for (int i : rand_vec | views::take(A_minus_B_size)) {
     ground_truth[i] = -1;  // in Alis but not in Bela
   }
   for (auto i : rand_vec | views::drop(A_size)) {
     ground_truth[i] = 1;  // in Bela but not in Alis
   }
+  first_round_code.encode(std::move(first_round_gt));
   doro.encode(std::move(ground_truth));
+
+  // recenters all codes to range
+  for (auto& val : doro.code()) {
+    val = doro.recenter(val);
+  }
+  for (auto& val : first_round_code.code()) {
+    val = first_round_code.recenter(val);
+  }
+
+  // rANS encode for uniform distribution in [lb, ub)
+  auto uniform_map = uniform_pmf<CounterType>(lb, ub);
+  RansWrapper first_round_wrapper(uniform_map);
+  RansCode first_round_compressed_code = first_round_wrapper.encode(first_round_code.code());
+  auto first_round_decompressed_code = first_round_wrapper.decode(first_round_compressed_code);
+
   double lambda = static_cast<double>(A_minus_B_size) * k / d;
   auto A_minus_B_map = get_pmf(lambda, d, counting);
   lambda = static_cast<double>(A_intersect_B_size) * k / d;
@@ -137,10 +175,13 @@ int main(int argc, char* argv[]) {
   double B_entropy = entropy(B_map);
   double all_entropy = doro_entropy(A_intersect_B_map, A_minus_B_map, B_minus_A_map);
   // This is conditional entropy H(A | B).
-  double first_round_cost = (all_entropy - B_entropy) * d;
+  double first_round_entropy_cost = (all_entropy - B_entropy) * d;
+  double first_round_cost = first_round_compressed_code.size() * 8;
+
+  DEBUG_VECTOR_EQUAL(first_round_decompressed_code, first_round_code.code());
   config["comm costs"] = json::array({ first_round_cost });
   config["doro costs"] = json::array({ first_round_cost });
-  config["theoretical entropy costs"] = json::array({ first_round_cost });
+  config["theoretical entropy costs"] = json::array({ first_round_entropy_cost });
   config["finger costs"] = json::array({ 0 });
   config["resolving costs"] = json::array({ 0 });
   config["time"] = json::array({});
@@ -148,18 +189,17 @@ int main(int argc, char* argv[]) {
   config["A minus B remaining"] = json::array({});
   config["B minus A remaining"] = json::array({});
   config["A intersect B remaining"] = json::array({});
-  config["correct decompression"] = json::array({});
   config["number of recenters"] = 0;
 
   Party party = Party::Alis;
   if (s > 31) {
-    println("Warning: signature size is too large.");
+    println("Warning: signature size is too large. Reset to 31.");
     s = 31;
   }
   unsigned int mask = (1 << s) - 1;
   WYHash finger_hash(mask, /*mode*/ 0, /*seed*/ rng());
   if (s2 > 31) {
-    println("Warning: resolving signature size is too large.");
+    println("Warning: resolving signature size is too large. Reset to 31.");
     s2 = 31;
   }
   unsigned int mask2 = (1 << s2) - 1;
@@ -210,7 +250,7 @@ int main(int argc, char* argv[]) {
     // 8 bytes to transmit two Skellam parameters in float.
     config["theoretical entropy costs"].push_back(theoretical_entropy);
     config["doro costs"].push_back(doro_cost);
-    config["correct decompression"].push_back(decompressed_code == doro.code());
+    DEBUG_VECTOR_EQUAL(decompressed_code, doro.code());
 
     int new_extra_size = 0;  // number of new elements decoded in this round
     for (auto [key, value] : *result) {

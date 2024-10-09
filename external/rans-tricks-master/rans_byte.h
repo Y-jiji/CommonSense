@@ -266,7 +266,7 @@ static inline void RansEncPutSymbol(RansState* r, uint8_t** pptr, RansEncSymbol 
 	*((uint16_t*)ptr) = (uint16_t) (x & 0xffff);
 	*pptr -= s << 1;
 	x = (-s & ((x >> 16) - x)) + x;////////////
-
+  
     // x = C(s,x)
     // NOTE: written this way so we get a 32-bit "multiply high" when
     // available. If you're on a 64-bit platform with cheap multiplies

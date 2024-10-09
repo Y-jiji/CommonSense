@@ -13,8 +13,10 @@
 #include "rans-tricks-master/rans_byte.h"
 
 namespace Doro {
-
-static const uint32_t prob_bits = 15, prob_scale = 1 << prob_bits;
+// set to avoid errors in rANS for non-enough precision.
+static const uint32_t max_symbol_freq = 8192;
+static const uint32_t prob_bits = 15;
+static const uint32_t prob_scale = 1 << prob_bits;
 
 // Only the RansWrapper can edit RansCode.
 // Otherwise RansCode is read-only.
@@ -57,6 +59,8 @@ private:
   std::vector<uint32_t> extra_index_;
   bool default_mode_;
   uint32_t data_length_; // length of data in default mode.
+  // used only for debugging
+  mutable std::vector<uint32_t> rans_states_;
 
   template <typename T, typename VAL>
   friend class RansWrapper;
@@ -66,7 +70,7 @@ template <typename T, typename VAL> // type to be compressed
 class RansWrapper {
 public:
   explicit RansWrapper(const std::unordered_map<T, VAL>& frequencies) 
-    : default_sym_(0), default_mode_(false) {
+    : default_sym_(0), default_mode_(false), new_scale_bits_(prob_bits) {
     if (frequencies.size() < 1) {
       throw std::invalid_argument("empty frequency map.");
     }
@@ -87,11 +91,27 @@ public:
     for (size_t i = 0; i < frequencies.size(); i++) {
       freqs.push_back(cum_freqs[i + 1] - cum_freqs[i]);
     }
-    assert(cum_freqs.back() == prob_scale);
-
+    
+    uint32_t scale_down = 1;
+    uint32_t max_freqs = *std::max_element(freqs.begin(), freqs.end());
+    if (max_freqs > max_symbol_freq) {
+      while (max_freqs / scale_down > max_symbol_freq) {
+        scale_down *= 2;
+        --new_scale_bits_;
+      }
+      for (auto& cfreq : cum_freqs) {
+        cfreq /= scale_down;
+      }
+      freqs.clear();
+      for (size_t i = 0; i < frequencies.size(); i++) {
+        freqs.push_back(cum_freqs[i + 1] - cum_freqs[i]);
+      }
+    }
+    uint32_t new_prob_scale = prob_scale / scale_down;
+    assert(cum_freqs.back() == new_prob_scale);
     size_t i = 0, j = 0;
     // Build inverse cdf table
-    inverse_cum_.resize(prob_scale);
+    inverse_cum_.resize(new_prob_scale);
     for (auto& [sym, freq] : frequencies) {
       if (freqs[i] == 0) {
         ++i;
@@ -99,7 +119,7 @@ public:
       }
       default_sym_ = sym;  // in default mode, default_sym_ will be the only symbol with nonzero frequency.
       RansEncSymbol symbol;
-      RansEncSymbolInit(&symbol, cum_freqs[i], freqs[i], prob_bits);
+      RansEncSymbolInit(&symbol, cum_freqs[i], freqs[i], new_scale_bits_);
       esyms_[sym] = symbol;
       RansDecSymbol dsymbol;
       RansDecSymbolInit(&dsymbol, cum_freqs[i], freqs[i]);
@@ -140,6 +160,10 @@ public:
       }
       // In default mode, the default symbol is not encoded.
       if (default_mode_) continue;
+      #ifdef ONIAK_DEBUG
+      result.rans_states_.push_back(rans);
+      #endif
+
       RansEncPutSymbol(&rans, &ptr, &esyms_.at(sym));
       result.offset_ = ptr - result.begin();
       ptr = result.resize_if_full();
@@ -174,9 +198,17 @@ public:
         }
       }
       else {
-        uint32_t value = RansDecGet(&rans, prob_bits);
+        uint32_t value = RansDecGet(&rans, new_scale_bits_);
         sym = inverse_cum_.at(value);
-        RansDecAdvanceSymbol(&rans, &ptr, &dsyms_.at(sym), prob_bits);
+        RansDecAdvanceSymbol(&rans, &ptr, &dsyms_.at(sym), new_scale_bits_);
+
+        #ifdef ONIAK_DEBUG
+          if (!code.rans_states_.empty()) {
+            assert(rans == code.rans_states_.back());
+            code.rans_states_.pop_back();
+          }
+        #endif
+
         if (ptr >= code.end()) {
           break;
         }
@@ -192,6 +224,7 @@ private:
   std::vector<T> inverse_cum_;
   T default_sym_;
   bool default_mode_;
+  int new_scale_bits_;
 };
 
 

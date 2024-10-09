@@ -90,7 +90,16 @@ std::unordered_map<int, double> get_pmf(double lambda, int x, bool counting) {
     Skellam skellam = create_corrected_skellam(lambda, x);
     return skellam.pmf_map();
   }
+}
 
+// uniform distribution of [lb, ub)
+template<typename T>
+std::unordered_map<T, double> uniform_pmf(int lb, int ub) {
+  std::unordered_map<T, double> result;
+  for (int i = lb; i < ub; ++i) {
+    result[i] = 1.0 / (ub - lb);
+  }
+  return result;
 }
 
 // all entropies are in bits

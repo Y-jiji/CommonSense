@@ -6,11 +6,11 @@
   "root path": "/media/mydrive/CDMA",
   "max process": 34,
   "seed": 3483110214,
-  "universe": 1000000,
+  "universe": 2000000,
   "A size": 1000000,
   "B size": 1000000,
   "A minus B size": 10000,
-  "k": 10,
+  "k": 8,
   "d": 200000,
   "s": 16,
   "s2": 16,
@@ -20,8 +20,8 @@
   "max comm rounds": 40,
   "counting": true,
   "to": 6,
-  "lb": -3,
-  "ub": 4,
+  "lb": -5,
+  "ub": 6,
   "resolving round": 2,
-  "result filename": "../result/quantize/test.json"
+  "result filename": "../result/quantize/test2.json"
 }
