@@ -31,11 +31,9 @@ public:
     }
   }
 
-  void encode(SparseVector kvpairs) {
+  void encode(const SparseVector& kvpairs) {
     assert(values_.empty());
-    ground_truth_ = std::move(kvpairs);
-
-    for (auto [x, val] : ground_truth_) {
+    for (auto [x, val] : kvpairs) {
       for (int i : std::views::iota(0, k_)) {
         auto [index, sign] = hash(i, x);
         arr_[index] += sign * val;
@@ -132,7 +130,6 @@ public:
     num_correct_peels_ = 0;
     num_recenters_ = 0;
     values_ = {};
-    encode(std::move(ground_truth_));
   }
 
   int size() const {
@@ -171,7 +168,7 @@ public:
 
 private:
   std::vector<ArrType> arr_;
-  SparseVector values_, ground_truth_;
+  SparseVector values_;
 
   // If is_cbf_ is true, then all hashed signs are positive.
   bool is_cbf_; // cbf: counting Bloom filter

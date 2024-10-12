@@ -14,7 +14,7 @@
 
 namespace Doro {
 // set to avoid errors in rANS for non-enough precision.
-static const uint32_t max_symbol_freq = 8192;
+static const uint32_t max_symbol_freq = 1u << 15;
 static const uint32_t prob_bits = 15;
 static const uint32_t prob_scale = 1 << prob_bits;
 
@@ -26,10 +26,11 @@ static const uint32_t prob_scale = 1 << prob_bits;
 class RansCode {
 public:
   RansCode(int size) : code_(size, 0), offset_(size - 2), default_mode_(false), data_length_(0) {}
-  // size is in terms of bytes.
+  // size is in terms of bits.
   size_t size() const {
-    return code_.size() - offset_ + 1 // default marker
-      + extra_index_.size() * 4 + extra_.size() + (default_mode_ ? 4 : 0); // four bytes for data length in default mode.
+    size_t code_size = code_.size() - offset_ - 2; // last two bytes are never used 
+    return code_size * 8 + extra_index_.size() * 32 + extra_.size() * 8 + 1  // default_marker
+     + (default_mode_ ? 32 : 0); // four bytes for data length in default mode.
   }
   // raw codes not containing extra data.
   auto code_view() const { return std::views::all(code_) | std::views::drop(offset_); }

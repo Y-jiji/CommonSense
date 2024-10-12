@@ -56,13 +56,13 @@ typedef uint32_t RansState;
 // Initialize a rANS encoder.
 static inline void RansEncInit(RansState* r)
 {
-    *r = RANS_BYTE_L;
+    *r = 1u << 15;
 }
 
 // Renormalize the encoder. Internal function.
 static inline RansState RansEncRenorm(RansState x, uint8_t** pptr, uint32_t freq, uint32_t scale_bits)
 {
-	uint32_t x_max = ((RANS_BYTE_L >> scale_bits) << 16) * freq;
+	uint32_t x_max = RANS_BYTE_L * freq;
 	int32_t s = x >= x_max;
 	// uint32_t tx = x;
 	uint8_t *ptr = *pptr - 2;
@@ -138,7 +138,7 @@ static inline void RansDecAdvance(RansState* r, const uint8_t** pptr, uint32_t s
     	x = freq * (x >> scale_bits) + (x & mask) - start;
 
 	// True branchless renormalization
-	int32_t s = x < RANS_BYTE_L;
+	int32_t s = x < (1u << scale_bits);
 	uint32_t tx = x;
 	tx = (tx << 16) | *((uint16_t*)*pptr); 
 	*pptr += s << 1;
@@ -192,11 +192,11 @@ static inline void RansEncSymbolInit(RansEncSymbol* s, uint32_t start, uint32_t 
     // set up our parameters such that the original encoder and
     // the fast encoder agree.
 
-    s->x_max = ((RANS_BYTE_L >> scale_bits) << 16) * freq;
+    s->x_max = RANS_BYTE_L * freq;
     s->cmpl_freq = (uint16_t) ((1 << scale_bits) - freq);
     if (freq < 2) {
         // freq=0 symbols are never valid to encode, so it doesn't matter what
-        // we set our values to.
+        // we set our values to.rcp_freq
         //
         // freq=1 is tricky, since the reciprocal of 1 is 1; unfortunately,
         // our fixed-point reciprocal approximation can only multiply by values

@@ -13,10 +13,13 @@ set(INCLUDE_TESTS ON)
 project(doro)
 find_package(libONIAK REQUIRED)
 
+add_subdirectory(external/bch_codec)
+
 add_executable(two_party "src/two_party.cpp")
 include_directories("external")
 include_directories("src")
 target_link_libraries(two_party PRIVATE ONIAK::libONIAK)
+target_link_libraries(two_party PRIVATE bch_codec)
 
 if (INCLUDE_TESTS)
 	add_subdirectory(test)

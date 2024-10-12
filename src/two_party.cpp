@@ -9,6 +9,7 @@
 #include "oniakTimer/otime.h"
 #include "nlohmann/json.hpp"
 
+#include <algorithm>
 #include <fstream>
 #include <format>
 #include <iostream>
@@ -136,36 +137,40 @@ int main(int argc, char* argv[]) {
   unordered_set<int> setB_minus_A(rand_vec.begin() + A_size, rand_vec.end());
 
   DoroCode<CounterType> doro(d, k, counting, rng, lb, ub);
-  DoroCode<CounterType> first_round_code(d, k, counting, rng, lb, ub);
-  unordered_map<int, CounterType> ground_truth, first_round_gt;
+  // copy to keep the same set of hash functions
+  auto first_round_code = doro;
+  unordered_map<int, CounterType> Bela_coef, Alis_coef;
   for (int i : rand_vec | views::take(A_size)) {
-    first_round_gt[i] = 1;
+    Alis_coef[i] = 1;
   }
-  for (int i : rand_vec | views::take(A_minus_B_size)) {
-    ground_truth[i] = -1;  // in Alis but not in Bela
+  for (int i : rand_vec | views::drop(A_minus_B_size)) {
+    Bela_coef[i] = 1;  // in Bela
   }
-  for (auto i : rand_vec | views::drop(A_size)) {
-    ground_truth[i] = 1;  // in Bela but not in Alis
-  }
-  first_round_code.encode(std::move(first_round_gt));
-  doro.encode(std::move(ground_truth));
 
-  // recenters all codes to range
-  for (auto& val : doro.code()) {
-    val = doro.recenter(val);
-  }
+  first_round_code.encode(Alis_coef);
   for (auto& val : first_round_code.code()) {
     val = first_round_code.recenter(val);
   }
-
   // rANS encode for uniform distribution in [lb, ub)
   auto uniform_map = uniform_pmf<CounterType>(lb, ub);
   RansWrapper first_round_wrapper(uniform_map);
   RansCode first_round_compressed_code = first_round_wrapper.encode(first_round_code.code());
   auto first_round_decompressed_code = first_round_wrapper.decode(first_round_compressed_code);
+  DEBUG_VECTOR_EQUAL(first_round_decompressed_code, first_round_code.code());
+  double first_round_cost = first_round_compressed_code.size() * 8;
+  first_round_code.code() = std::move(first_round_decompressed_code);
+
+  doro.encode(Bela_coef);
+  transform(doro.code().begin(), doro.code().end(), first_round_code.code().begin(),
+    doro.code().begin(), std::minus<CounterType>());
+  // recenters all codes to range
+  for (auto& val : doro.code()) {
+    val = doro.recenter(val);
+  }
 
   double lambda = static_cast<double>(A_minus_B_size) * k / d;
   auto A_minus_B_map = get_pmf(lambda, d, counting);
+
   lambda = static_cast<double>(A_intersect_B_size) * k / d;
   auto A_intersect_B_map = get_pmf(lambda, d, counting);
   lambda = static_cast<double>(B_minus_A_size) * k / d;
@@ -176,9 +181,7 @@ int main(int argc, char* argv[]) {
   double all_entropy = doro_entropy(A_intersect_B_map, A_minus_B_map, B_minus_A_map);
   // This is conditional entropy H(A | B).
   double first_round_entropy_cost = (all_entropy - B_entropy) * d;
-  double first_round_cost = first_round_compressed_code.size() * 8;
 
-  DEBUG_VECTOR_EQUAL(first_round_decompressed_code, first_round_code.code());
   config["comm costs"] = json::array({ first_round_cost });
   config["doro costs"] = json::array({ first_round_cost });
   config["theoretical entropy costs"] = json::array({ first_round_entropy_cost });
@@ -251,6 +254,7 @@ int main(int argc, char* argv[]) {
     config["theoretical entropy costs"].push_back(theoretical_entropy);
     config["doro costs"].push_back(doro_cost);
     DEBUG_VECTOR_EQUAL(decompressed_code, doro.code());
+    doro.code() = std::move(decompressed_code);  // just use these codes.
 
     int new_extra_size = 0;  // number of new elements decoded in this round
     for (auto [key, value] : *result) {
