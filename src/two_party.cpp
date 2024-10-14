@@ -1,3 +1,4 @@
+#include "bch_wrapper.hpp"
 #include "doro.hpp"
 #include "decoder.hpp"
 #include "probability.hpp"
@@ -126,6 +127,13 @@ int main(int argc, char* argv[]) {
   int resolving_round = max_comm_rounds - 5;  // at this round, always start resolving
   if (config.contains("resolving round")) resolving_round = config.at("resolving round");
   bool counting = config.at("counting");
+  bool bch_encoding = false;
+  if (config.contains("bch encoding")) bch_encoding = config.at("bch encoding");
+  int bch_order = 5, bch_capacity = 1;
+  if (bch_encoding) {
+    bch_order = config.at("bch order");
+    bch_capacity = config.at("bch capacity");
+  }
 
   mt19937 rng(seed);
   auto rand_vec = random_nonrepetitive<int>(universe, A_union_B_size, rng);
@@ -146,26 +154,48 @@ int main(int argc, char* argv[]) {
   for (int i : rand_vec | views::drop(A_minus_B_size)) {
     Bela_coef[i] = 1;  // in Bela
   }
-
   first_round_code.encode(Alis_coef);
+
+  BCHWrapper bch(bch_order, bch_capacity);
+  vector<uint8_t> bch_data, parity_bits;
+  CounterType interval_size = first_round_code.interval();
   for (auto& val : first_round_code.code()) {
-    val = first_round_code.recenter(val);
+    CounterType new_val = first_round_code.recenter(val);
+    CounterType diff = new_val - val;
+    val = new_val;
+    if (bch_encoding) {
+      bch_data.push_back(diff / interval_size % 2);
+    }
   }
+  if (bch_encoding) {
+    parity_bits = bch.encode(bch_data, /*bit-by-bit*/ true);
+  }
+
   // rANS encode for uniform distribution in [lb, ub)
   auto uniform_map = uniform_pmf<CounterType>(lb, ub);
   RansWrapper first_round_wrapper(uniform_map);
   RansCode first_round_compressed_code = first_round_wrapper.encode(first_round_code.code());
   auto first_round_decompressed_code = first_round_wrapper.decode(first_round_compressed_code);
   DEBUG_VECTOR_EQUAL(first_round_decompressed_code, first_round_code.code());
-  double first_round_cost = first_round_compressed_code.size() * 8;
+  double first_round_cost = first_round_compressed_code.size() * 8 + parity_bits.size();
   first_round_code.code() = std::move(first_round_decompressed_code);
 
   doro.encode(Bela_coef);
-  transform(doro.code().begin(), doro.code().end(), first_round_code.code().begin(),
-    doro.code().begin(), std::minus<CounterType>());
-  // recenters all codes to range
-  for (auto& val : doro.code()) {
-    val = doro.recenter(val);
+  vector<uint8_t> data_decode;
+  for (int i = 0; i < d; ++i) {
+    CounterType diff = doro.code()[i] - first_round_code.code()[i];
+    diff = doro.recenter(diff);
+    CounterType encoder_value = doro.code()[i] - diff; // Bela's guess of Alis' value
+    if (bch_encoding) {
+      data_decode.push_back(encoder_value / interval_size % 2);
+    }
+    doro.code()[i] = diff; // recentered difference
+  }
+  if (bch_encoding) {
+    vector<size_t> error_pos = bch.get_error_positions(data_decode, parity_bits, /*bit-by-bit*/ true);
+    for (size_t pos : error_pos) {
+      doro.code()[pos] += (doro.code()[pos] < 0) ? interval_size : -interval_size;
+    }
   }
 
   double lambda = static_cast<double>(A_minus_B_size) * k / d;

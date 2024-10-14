@@ -33,43 +33,88 @@ public:
 
   // if bit_by_bit, each element of input data is one bit. Only the LSB is used.
   std::vector<uint8_t> encode(const std::vector<uint8_t>& data, bool bit_by_bit = false) const {
-    std::vector<uint8_t> parity_bits(bch_->ecc_bytes, 0);
+    std::vector<uint8_t> parity_bits, data_copy = data;
     if (bit_by_bit) {
-      assert(data.size() == message_size());
-      encodebits_bch(bch_, data.data(), parity_bits.data());
+      size_t number_blocks = (data.size() + message_size() - 1) / message_size();
+      data_copy.resize(number_blocks * message_size(), 0);
+      parity_bits.assign(number_blocks * parity_bits_size(), 0);
+      for (size_t b = 0; b < number_blocks; ++b) {
+        encodebits_bch(bch_, data_copy.data() + b * message_size(), parity_bits.data() + b * parity_bits_size());
+      }
     }
     else {
+      parity_bits.assign(bch_->ecc_bytes, 0);
       assert(data.size() == message_size_bytes());
       encode_bch(bch_, data.data(), data.size(), parity_bits.data());
     }
     return parity_bits;
   }
 
+  int encoded_parity_size(const std::vector<uint8_t>& data) const {
+    size_t number_blocks = (data.size() + message_size() - 1) / message_size();
+    return number_blocks * parity_bits_size();
+  }
+
   std::vector<uint8_t> decode(const std::vector<uint8_t>& data,
     const std::vector<uint8_t>& parity_bits, bool bit_by_bit = false) const {
     std::vector<unsigned int> errLocOut(bch_->t);
+    std::vector<uint8_t> decoded_data(data);
     int nerrFound;
-    assert(parity_bits.size() == bch_->ecc_bytes);
     if (bit_by_bit) {
-      assert(data.size() == message_size());
-      nerrFound = decodebits_bch(bch_, data.data(), parity_bits.data(), errLocOut.data());
-    } else {
+      size_t number_blocks = (data.size() + message_size() - 1) / message_size();
+      decoded_data.resize(number_blocks * message_size(), 0);
+      assert(parity_bits.size() == parity_bits_size() * number_blocks);
+      for (size_t b = 0; b < number_blocks; ++b) {
+        nerrFound = decodebits_bch(bch_, decoded_data.data() + b * message_size(),
+          parity_bits.data() + b * parity_bits_size(), errLocOut.data());
+        if (nerrFound < 0) { // error correction failed
+          continue;
+        }
+        else {
+          correctbits_bch(bch_, decoded_data.data() + b * message_size(), errLocOut.data(), nerrFound);
+        }
+      }
+      decoded_data.resize(data.size());
+    }
+    else {
+      assert(parity_bits.size() == bch_->ecc_bytes);
       assert(data.size() == message_size_bytes());
       nerrFound = decode_bch(bch_, data.data(), data.size(), parity_bits.data(), NULL, NULL, errLocOut.data());
-    }
-
-    if (nerrFound < 0) {
-      // error correction failed
-      return data;
-    }
-
-    std::vector<uint8_t> decoded_data(data);
-    if (bit_by_bit) {
-      correctbits_bch(bch_, decoded_data.data(), errLocOut.data(), nerrFound);
-    } else {
-      correct_bch(bch_, decoded_data.data(), data.size(), errLocOut.data(), nerrFound);
+      if (nerrFound < 0) { // error correction failed
+        return data;
+      }
+      else {
+        correct_bch(bch_, decoded_data.data(), data.size(), errLocOut.data(), nerrFound);
+      }
     }
     return decoded_data;
+  }
+
+  std::vector<size_t> get_error_positions(const std::vector<uint8_t>& data,
+    const std::vector<uint8_t>& parity_bits, bool bit_by_bit = false) const {
+    assert(bit_by_bit == true); // Otherwise, not implemented.
+    std::vector<unsigned int> errLocOut(bch_->t);
+    std::vector<uint8_t> decoded_data = data;
+    std::vector<size_t> error_pos;
+    int nerrFound;
+    if (bit_by_bit) {
+      size_t number_blocks = (data.size() + message_size() - 1) / message_size();
+      decoded_data.resize(number_blocks * message_size(), 0);
+      assert(parity_bits.size() == parity_bits_size() * number_blocks);
+      for (size_t b = 0; b < number_blocks; ++b) {
+        nerrFound = decodebits_bch(bch_, decoded_data.data() + b * message_size(),
+          parity_bits.data() + b * parity_bits_size(), errLocOut.data());
+        if (nerrFound < 0) { // error correction failed
+          continue;
+        }
+        else {
+          for (int i = 0; i < nerrFound; ++i) {
+            error_pos.push_back(b * message_size() + errLocOut[i]);
+          }
+        }
+      }
+    }
+    return error_pos;
   }
 
 private:

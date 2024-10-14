@@ -144,6 +144,7 @@ public:
   int& num_peels() { return num_peels_; }
   int& num_correct_peels() { return num_correct_peels_; }
   int& num_recenters() { return num_recenters_; }
+  ArrType interval() const { return interval_; }
 
   void show_result() const {
     std::cout << "Number of peels: " << num_peels_ << std::endl;
