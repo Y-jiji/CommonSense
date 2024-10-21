@@ -11,6 +11,7 @@
 #include "nlohmann/json.hpp"
 
 #include <algorithm>
+#include <filesystem>
 #include <fstream>
 #include <format>
 #include <iostream>
@@ -28,11 +29,11 @@ using namespace nlohmann;
 
 enum class Party { Alis = 0, Bela = 1 };
 enum class Status { CollisionAvoiding = 0, CollisionResolving = 1, Finished = 2 };
-using CounterType = int8_t;
+using CounterType = int16_t;
 
 bool get_sizes(const std::unordered_map<int, CounterType>& result1,
   const std::unordered_map<int, CounterType>& result2, const std::unordered_set<int>& setA_minus_B, const std::unordered_set<int>& setB_minus_A,
-  json& config) {
+  json& config, const DoroCode<CounterType>& doro) {
   int A_minus_B_remaining_size = setA_minus_B.size(), B_minus_A_remaining_size = setB_minus_A.size(), A_intersect_B_remaining_size = 0;
   for (auto [key, value] : result1) {
     if (value == 0) continue;
@@ -40,17 +41,44 @@ bool get_sizes(const std::unordered_map<int, CounterType>& result1,
     else if (setB_minus_A.contains(key)) --B_minus_A_remaining_size;
     else {
       ++A_intersect_B_remaining_size;
+#ifdef ONIAK_DEBUG
+      std::cout << key << "\t";
+      doro.print_key(key);
+#endif
     }
   }
   for (auto [key, value] : result2) {
     if (value == 0) continue;
     if (setA_minus_B.contains(key)) --A_minus_B_remaining_size;
     else if (setB_minus_A.contains(key)) --B_minus_A_remaining_size;
-    else ++A_intersect_B_remaining_size;
+    else {
+      ++A_intersect_B_remaining_size;
+#ifdef ONIAK_DEBUG
+      std::cout << key << "\t";
+      doro.print_key(key);
+#endif
+    }
   }
   config["A minus B remaining"].push_back(A_minus_B_remaining_size);
   config["B minus A remaining"].push_back(B_minus_A_remaining_size);
   config["A intersect B remaining"].push_back(A_intersect_B_remaining_size);
+
+#ifdef ONIAK_DEBUG
+  for (auto value : setA_minus_B) {
+    if ((!result1.contains(value) || result1.at(value) == 0)
+      && (!result2.contains(value) || result2.at(value) == 0)) {
+      std::cout << value << "\t";
+      doro.print_key(value);
+    }
+  }
+  for (auto value : setB_minus_A) {
+    if ((!result1.contains(value) || result1.at(value) == 0)
+      && (!result2.contains(value) || result2.at(value) == 0)) {
+      std::cout << value << "\t";
+      doro.print_key(value);
+    }
+  }
+#endif
   return A_minus_B_remaining_size == 0 && B_minus_A_remaining_size == 0 && A_intersect_B_remaining_size == 0;
 }
 
@@ -63,8 +91,7 @@ Skellam moment_fit_skellam(const DoroCode<T>& code) {
     mu2 = (variance - mean) / 2.0;
     if (mu1 < 0) mu1 = 0;
     if (mu2 < 0) mu2 = 0;
-  }
-  else {
+  } else {
     if (variance < 0) variance = 0;
     mu1 = mu2 = variance / 2.0;
   }
@@ -124,7 +151,7 @@ int main(int argc, char* argv[]) {
   if (config.contains("max rounds")) max_rounds = config.at("max rounds");
   int max_comm_rounds = 20;
   if (config.contains("max comm rounds")) max_comm_rounds = config.at("max comm rounds");
-  int resolving_round = max_comm_rounds - 5;  // at this round, always start resolving
+  int resolving_round = -1;  // at this round, always start resolving
   if (config.contains("resolving round")) resolving_round = config.at("resolving round");
   bool counting = config.at("counting");
   bool bch_encoding = false;
@@ -133,6 +160,17 @@ int main(int argc, char* argv[]) {
   if (bch_encoding) {
     bch_order = config.at("bch order");
     bch_capacity = config.at("bch capacity");
+  }
+  double bch_midpoint = (lb + ub - 1) / 2.0;
+  if (config.contains("bch midpoint")) bch_midpoint = config.at("bch midpoint");
+  // Skip this experiment if result already exists, used for batch experimenting.
+  bool skip_if_exists = false;
+  int max_recenter_rounds = 10;
+  if (config.contains("max recenter rounds")) max_recenter_rounds = config.at("max recenter rounds");
+  if (config.contains("skip if exists")) skip_if_exists = config.at("skip if exists");
+  if (skip_if_exists && filesystem::exists(save_path)) {
+    cout << "Notice: Experiment results already exist. Skipping..." << endl;
+    return 0;
   }
 
   mt19937 rng(seed);
@@ -160,12 +198,10 @@ int main(int argc, char* argv[]) {
   vector<uint8_t> bch_data, parity_bits;
   CounterType interval_size = first_round_code.interval();
   for (auto& val : first_round_code.code()) {
-    CounterType new_val = first_round_code.recenter(val);
-    CounterType diff = new_val - val;
-    val = new_val;
     if (bch_encoding) {
-      bch_data.push_back(diff / interval_size % 2);
+      bch_data.push_back(val / interval_size % 2);
     }
+    val = first_round_code.recenter(val);
   }
   if (bch_encoding) {
     parity_bits = bch.encode(bch_data, /*bit-by-bit*/ true);
@@ -177,7 +213,7 @@ int main(int argc, char* argv[]) {
   RansCode first_round_compressed_code = first_round_wrapper.encode(first_round_code.code());
   auto first_round_decompressed_code = first_round_wrapper.decode(first_round_compressed_code);
   DEBUG_VECTOR_EQUAL(first_round_decompressed_code, first_round_code.code());
-  double first_round_cost = first_round_compressed_code.size() * 8 + parity_bits.size();
+  double first_round_cost = first_round_compressed_code.size() + parity_bits.size();
   first_round_code.code() = std::move(first_round_decompressed_code);
 
   doro.encode(Bela_coef);
@@ -189,13 +225,25 @@ int main(int argc, char* argv[]) {
     if (bch_encoding) {
       data_decode.push_back(encoder_value / interval_size % 2);
     }
+    
+    
     doro.code()[i] = diff; // recentered difference
   }
   if (bch_encoding) {
-    vector<size_t> error_pos = bch.get_error_positions(data_decode, parity_bits, /*bit-by-bit*/ true);
+    int num_failed_blocks = 0, num_errors_found = 0;
+    vector<size_t> error_pos =
+      bch.get_error_positions(data_decode, parity_bits, /*bit-by-bit*/ true, &num_failed_blocks, &num_errors_found);
     for (size_t pos : error_pos) {
-      doro.code()[pos] += (doro.code()[pos] < 0) ? interval_size : -interval_size;
+      CounterType revision_value = 0;
+      if (doro.code()[pos] < bch_midpoint) {
+        revision_value = interval_size;
+      } else if (doro.code()[pos] > bch_midpoint) {
+        revision_value = -interval_size;
+      }
+      doro.code()[pos] += revision_value;
     }
+    config["number of failed blocks"] = num_failed_blocks;
+    config["number of corrected errors"] = num_errors_found;
   }
 
   double lambda = static_cast<double>(A_minus_B_size) * k / d;
@@ -239,7 +287,8 @@ int main(int argc, char* argv[]) {
   WYHash resolving_hash(mask2, /*mode*/ 0, /*seed*/ rng());
 
   Status status = Status::CollisionAvoiding;
-  DoroDecoder<CounterType> decoder_alis(&finger_hash, &resolving_hash), decoder_bela(&finger_hash, &resolving_hash);
+  DoroDecoder<CounterType> decoder_alis(max_recenter_rounds, &finger_hash, &resolving_hash), 
+    decoder_bela(max_recenter_rounds, &finger_hash, &resolving_hash);
   DecodeConfig dconf_alis(tk, max_rounds, to, ta, /*verbose*/ false, /*debug*/ false, /*lb*/ -1, /*ub*/ 0, PursuitChoice::L2),
     dconf_bela(tk, max_rounds, to, ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, PursuitChoice::L2);
   StopWatch sw;
@@ -249,6 +298,11 @@ int main(int argc, char* argv[]) {
   bool no_advance = false;
   int comm_rounds = 0, actual_comm_rounds = 0;
   bool success = false;
+
+  if (resolving_round < 0) {
+    decoder_alis.enter_resolving();
+    decoder_bela.enter_resolving();
+  }
 
   while (!doro.empty() && comm_rounds < max_comm_rounds && status != Status::Finished) {
     actual_comm_rounds = std::max(actual_comm_rounds, comm_rounds + 1);
@@ -266,7 +320,7 @@ int main(int argc, char* argv[]) {
     if (doro.empty() && decoder.unresolved_elements().empty()) {
       config["time"].push_back(sw.peek());
       config["num peels"].push_back(num_peels);
-      success = success || get_sizes(decoder.result(), other_decoder.result(), setA_minus_B, setB_minus_A, config);
+      success = success || get_sizes(decoder.result(), other_decoder.result(), setA_minus_B, setB_minus_A, config, doro);
       break;
     }
 
@@ -279,7 +333,7 @@ int main(int argc, char* argv[]) {
 
     double skellam_entropy = entropy(frequency_count(doro.code()));
     double theoretical_entropy = skellam_entropy * d;
-    doro_cost = doro_compressed_code.size() * 8 + 64;
+    doro_cost = doro_compressed_code.size() + 64;
     // 8 bytes to transmit two Skellam parameters in float.
     config["theoretical entropy costs"].push_back(theoretical_entropy);
     config["doro costs"].push_back(doro_cost);
@@ -311,29 +365,26 @@ int main(int argc, char* argv[]) {
     config["resolving costs"].push_back(resolving_cost);
     double comm_cost = doro_cost + finger_cost + resolving_cost;
     config["comm costs"].push_back(comm_cost);
-    success = success || get_sizes(decoder.result(), other_decoder.result(), setA_minus_B, setB_minus_A, config);
-
+    success = success || get_sizes(decoder.result(), other_decoder.result(), setA_minus_B, setB_minus_A, config, doro);
     config["time"].push_back(sw.peek());
     config["num peels"].push_back(doro.num_peels());
-    config["number of recenters"] = doro.num_recenters();
 
     if (decoder.result() == last_result || comm_rounds == resolving_round) {
       if (status == Status::CollisionAvoiding) {
         status = Status::CollisionResolving;
         decoder_alis.enter_resolving();
         decoder_bela.enter_resolving();
-        config["round entering resolving"].push_back(actual_comm_rounds);
-      }
-      else if (!no_advance) no_advance = true;
+        config["round entering resolving"] = actual_comm_rounds;
+      } else if (!no_advance) no_advance = true;
       else if (decoder.result() == last_result) status = Status::Finished;
-    }
-    else no_advance = false;
+    } else no_advance = false;
 
     decoder.update_fingerprints(other_decoder);
     last_result = decoder.result();
 
     ++comm_rounds;
   }
+  config["number of recenters"] = doro.num_recenters();
   config["communication rounds"] = actual_comm_rounds;
 
   double total_comm_cost = 0;

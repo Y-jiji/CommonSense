@@ -41,7 +41,8 @@ public:
   using TwoDimVector = std::vector<std::vector<int>>;
   using UpdatePQ = ONIAK::UpdatePQAdapter<int, ArrType, backend>::type;
 
-  DoroDecoder(ONIAK::WYHash* finger_hash = nullptr, ONIAK::WYHash* resolving_hash = nullptr) :
+  DoroDecoder(int max_recenter_rounds = 10, ONIAK::WYHash* finger_hash = nullptr, ONIAK::WYHash* resolving_hash = nullptr) :
+    max_recenter_rounds_(max_recenter_rounds),
     finger_hash_(finger_hash), resolving_hash_(resolving_hash), priority_queue_(
       // function from sensed strength to priority
       [](ArrType a) {return std::abs(a);}
@@ -120,12 +121,10 @@ public:
 
     // peel the counters until nothing can be done.
     new_elements_.clear();
-    size_t last_new_element_size = -1;
-    while (last_new_element_size != new_elements_.size()) {
-      last_new_element_size = new_elements_.size();
+    for (int rnd = 0; rnd < max_recenter_rounds_; ++rnd) {
       peel_until_empty();
       if (collision_resolving_) recenter_code();
-      else break;
+      if (priority_queue_.empty()) break;
     }
 
     unresolved_elements_.clear();
@@ -321,6 +320,7 @@ private:
   }
 
   DoroCodeT* code_;
+  int max_recenter_rounds_;
   ONIAK::WYHash* finger_hash_, * resolving_hash_;
   TwoDimVector neighbors_, neighbors2_;
   std::unordered_map<int, ArrType> result_;

@@ -1,0 +1,31 @@
+{
+  "script": [
+    "ROOT/build/two_party",
+    "JSON"
+  ],
+  "root path": "/media/mydrive/CDMA",
+  "max process": 34,
+  "seed": 3483110214,
+  "universe": 2000000,
+  "A size": 100000,
+  "B size": 101000,
+  "A minus B size": 0,
+  "k": 8,
+  "d": 7700,
+  "s": 16,
+  "s2": 16,
+  "id": 1,
+  "tk": 100,
+  "max rounds": 10,
+  "max comm rounds": 2,
+  "counting": true,
+  "to": 4,
+  "lb": 0,
+  "ub": 4,
+  "bch encoding": true,
+  "bch order": 10,
+  "bch capacity": 25,
+  "bch midpoint": 10,
+  "resolving round": 1,
+  "result filename": "../result/one_side_quantize/test.json"
+}

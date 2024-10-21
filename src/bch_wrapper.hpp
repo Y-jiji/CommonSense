@@ -91,12 +91,21 @@ public:
   }
 
   std::vector<size_t> get_error_positions(const std::vector<uint8_t>& data,
-    const std::vector<uint8_t>& parity_bits, bool bit_by_bit = false) const {
+    const std::vector<uint8_t>& parity_bits, bool bit_by_bit=false, int* num_failed_blocks=nullptr,
+    int* num_corrected_errors=nullptr) const {
     assert(bit_by_bit == true); // Otherwise, not implemented.
     std::vector<unsigned int> errLocOut(bch_->t);
     std::vector<uint8_t> decoded_data = data;
     std::vector<size_t> error_pos;
     int nerrFound;
+
+    if (num_failed_blocks) {
+      *num_failed_blocks = 0;
+    }
+    if (num_corrected_errors) {
+      *num_corrected_errors = 0;
+    }
+
     if (bit_by_bit) {
       size_t number_blocks = (data.size() + message_size() - 1) / message_size();
       decoded_data.resize(number_blocks * message_size(), 0);
@@ -105,9 +114,15 @@ public:
         nerrFound = decodebits_bch(bch_, decoded_data.data() + b * message_size(),
           parity_bits.data() + b * parity_bits_size(), errLocOut.data());
         if (nerrFound < 0) { // error correction failed
+          if (num_failed_blocks) {
+            (*num_failed_blocks)++;
+          }
           continue;
         }
         else {
+          if (num_corrected_errors) {
+            *num_corrected_errors += nerrFound;
+          }
           for (int i = 0; i < nerrFound; ++i) {
             error_pos.push_back(b * message_size() + errLocOut[i]);
           }

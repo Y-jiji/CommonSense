@@ -42,7 +42,7 @@
   "C_Cpp.errorSquiggles": "enabled",
   "cmake.debugConfig": {
     "args": [
-      "${workspaceFolder}/config/quantize.json"
+      "${workspaceFolder}/config/one_side_mud.json"
     ]
   }
 }

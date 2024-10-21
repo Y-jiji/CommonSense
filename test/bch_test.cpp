@@ -58,7 +58,7 @@ int main() {
   std::sort(cidx_pos.begin(), cidx_pos.end());
   std::sort(decoded_pos.begin(), decoded_pos.end());
   cout << "Error positions are the same: " << ((cidx_pos == decoded_pos) ? "True" : "False") << endl;
-  for(int i = 0; i < cidx_pos.size(); ++i) {
+  for(size_t i = 0; i < cidx_pos.size(); ++i) {
     if (cidx_pos[i] != decoded_pos[i]) {
       cout << "Error at " << i << "\t" << cidx_pos[i] << "\t" << decoded_pos[i] << endl;
       break;

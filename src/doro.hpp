@@ -69,6 +69,14 @@ public:
     return signal;
   }
 
+  void print_key(int element) const {
+    for (int i : std::views::iota(0, k_)) {
+      auto [index, sign] = hash(i, element);
+      std::cout << index << "\\" << sign * arr_[index] << " ";
+    }
+    std::cout << std::endl;
+  }
+
   // recenter a counter so that it lies in [lb, ub)
   ArrType recenter(ArrType x) {
     if (interval_ <= 0) return x;   // never recenters
@@ -145,6 +153,7 @@ public:
   int& num_correct_peels() { return num_correct_peels_; }
   int& num_recenters() { return num_recenters_; }
   ArrType interval() const { return interval_; }
+  double mid_point() const { return (lb_ + ub_ - 1.0) / 2.0; }
 
   void show_result() const {
     std::cout << "Number of peels: " << num_peels_ << std::endl;

@@ -25,6 +25,7 @@ public:
   // skellam may have negative values
   template <typename T = int>
   std::unordered_map<T, double> pmf_map() const {
+    if (mu1_ < DoubleEpsilon && mu2_ < DoubleEpsilon) return {{ 0, 1.0 }};
     std::unordered_map<T, double> result;
     for (int k = 0; true; ++k) {
       double p = pmf(k);
@@ -64,6 +65,7 @@ public:
 
   template <typename T = int>
   std::unordered_map<T, double> pmf_map() const {
+    if (lambda_ < DoubleEpsilon) return {{0, 1.0}};
     std::unordered_map<T, double> result;
     bool started = false;
     for (int k = 0; true; ++k) {
