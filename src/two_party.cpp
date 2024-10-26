@@ -11,6 +11,7 @@
 #include "nlohmann/json.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <format>
@@ -19,17 +20,27 @@
 #include <random>
 #include <ranges>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
+
+#include <boost/math/distributions/binomial.hpp>
+
 
 using namespace std;
 using namespace Doro;
 using namespace ONIAK;
 using namespace nlohmann;
+using namespace boost::math;
 
 enum class Party { Alis = 0, Bela = 1 };
 enum class Status { CollisionAvoiding = 0, CollisionResolving = 1, Finished = 2 };
 using CounterType = int16_t;
+
+// The following constants are used for parameter tuning
+constexpr double diff_coding_error_min = 1e-9;
+constexpr double diff_coding_error_max = 0.1;
+constexpr double bch_block_error_rate = 0.01;
 
 bool get_sizes(const std::unordered_map<int, CounterType>& result1,
   const std::unordered_map<int, CounterType>& result2, const std::unordered_set<int>& setA_minus_B, const std::unordered_set<int>& setB_minus_A,
@@ -42,8 +53,8 @@ bool get_sizes(const std::unordered_map<int, CounterType>& result1,
     else {
       ++A_intersect_B_remaining_size;
 #ifdef ONIAK_DEBUG
-      std::cout << key << "\t";
-      doro.print_key(key);
+      //std::cout << key << "\t";
+      //doro.print_key(key);
 #endif
     }
   }
@@ -54,8 +65,8 @@ bool get_sizes(const std::unordered_map<int, CounterType>& result1,
     else {
       ++A_intersect_B_remaining_size;
 #ifdef ONIAK_DEBUG
-      std::cout << key << "\t";
-      doro.print_key(key);
+      //std::cout << key << "\t";
+      //doro.print_key(key);
 #endif
     }
   }
@@ -67,19 +78,32 @@ bool get_sizes(const std::unordered_map<int, CounterType>& result1,
   for (auto value : setA_minus_B) {
     if ((!result1.contains(value) || result1.at(value) == 0)
       && (!result2.contains(value) || result2.at(value) == 0)) {
-      std::cout << value << "\t";
-      doro.print_key(value);
+      //std::cout << value << "\t";
+      //doro.print_key(value);
     }
   }
   for (auto value : setB_minus_A) {
     if ((!result1.contains(value) || result1.at(value) == 0)
       && (!result2.contains(value) || result2.at(value) == 0)) {
-      std::cout << value << "\t";
-      doro.print_key(value);
+      //std::cout << value << "\t";
+      //doro.print_key(value);
     }
   }
 #endif
   return A_minus_B_remaining_size == 0 && B_minus_A_remaining_size == 0 && A_intersect_B_remaining_size == 0;
+}
+
+// automatically decide the signature lengths
+std::pair<int, int> signature_length(int A_minus_B_size, int B_minus_A_size, double failure_rate) {
+  double failure_rate_single_combination = static_cast<double>(A_minus_B_size) * static_cast<double>(B_minus_A_size)
+    / failure_rate;
+  int s_large = std::ceil(std::log2(std::max(A_minus_B_size, B_minus_A_size)));
+  int s_sum;
+  if (failure_rate_single_combination < 1e-9) s_sum = s_large;
+  else s_sum = std::ceil(std::log2(failure_rate_single_combination));
+  if (s_sum == s_large) return { s_large, 0 };
+  int x = std::floor(std::log2(s_sum - s_large));
+  return { s_large + x, s_sum - s_large - x };
 }
 
 template <typename T>
@@ -96,6 +120,49 @@ Skellam moment_fit_skellam(const DoroCode<T>& code) {
     mu1 = mu2 = variance / 2.0;
   }
   return { mu1, mu2 };
+}
+
+struct doro_parameter {
+  int lb, ub, bch_order, bch_capacity;
+};
+
+double cost_estimation(doro_parameter para) {
+  double uniform_cost = log2(para.ub - para.lb);
+  double bch_code_length = pow(2.0, para.bch_order) - 1;
+  double bch_check_length = para.bch_order * para.bch_capacity;
+  // Cannot find a valid bch code to correct this number of errors
+  if (bch_code_length <= bch_check_length) return 100000.0;
+  double bch_rate = bch_check_length / (bch_code_length - bch_check_length);
+  return uniform_cost + bch_rate;
+}
+
+// determine the lb, ub, bch order and bch capacity automatically
+doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_minus_A_size) {
+  double mu1 = static_cast<double>(A_minus_B_size) * k / static_cast<double>(d);
+  double mu2 = static_cast<double>(B_minus_A_size) * k / static_cast<double>(d);
+  Skellam skellam = { mu2, mu1 };
+  auto [cdf, k2, k1] = skellam.cdf_map();
+  int mean = mu2 - mu1;
+
+  doro_parameter best_para;
+  double best_cost = 100000.0;
+  for (int ub = mean+1; ub < k1; ++ub) {
+    for (int lb = mean; lb > k2; --lb) {
+      double diff_err = 1.0 - cdf.at(ub) + cdf.at(lb);
+      if (diff_err < diff_coding_error_min || diff_err > diff_coding_error_max) continue;
+
+      for (int bch_order = 5; bch_order <= 15; ++bch_order) {
+        int bch_code_length = (1 << bch_order) - 1;
+        int bch_capacity = ceil(quantile(binomial(bch_code_length, diff_err), 1.0 - bch_block_error_rate));
+        double estimated_cost = cost_estimation({ lb, ub, bch_order, bch_capacity });
+        if (estimated_cost < best_cost) {
+          best_cost = estimated_cost;
+          best_para = { lb, ub, bch_order, bch_capacity };
+        }
+      }
+    }
+  }
+  return best_para;
 }
 
 int main(int argc, char* argv[]) {
@@ -133,8 +200,9 @@ int main(int argc, char* argv[]) {
 
   int k = config.at("k");
   int d = config.at("d");
-  int s = config.at("s");   // signature size
-  int s2 = s;               // resolving signature size
+  int s = -1;
+  if (config.contains("s")) s = config.at("s");   // signature size
+  int s2 = -1;               // resolving signature size
   if (config.contains("s2")) s2 = config.at("s2");
   int tk = 20;  // stage decode
   if (config.contains("tk")) tk = config.at("tk");
@@ -142,9 +210,9 @@ int main(int argc, char* argv[]) {
   if (config.contains("ta")) ta = config.at("ta");
   int to = -1;
   if (config.contains("to")) to = config.at("to");
-  int lb = 0;
+  int lb = -1;
   if (config.contains("lb")) lb = config.at("lb");
-  int ub = 0;
+  int ub = -1;
   if (config.contains("ub")) ub = config.at("ub");
   std::string save_path = config.at("result filename");
   int max_rounds = 1'0000'0000;
@@ -156,8 +224,8 @@ int main(int argc, char* argv[]) {
   bool counting = config.at("counting");
   bool bch_encoding = false;
   if (config.contains("bch encoding")) bch_encoding = config.at("bch encoding");
-  int bch_order = 5, bch_capacity = 1;
-  if (bch_encoding) {
+  int bch_order = -1, bch_capacity = -1;
+  if (bch_encoding && config.contains("bch order") && config.contains("bch capacity")) {
     bch_order = config.at("bch order");
     bch_capacity = config.at("bch capacity");
   }
@@ -165,12 +233,20 @@ int main(int argc, char* argv[]) {
   if (config.contains("bch midpoint")) bch_midpoint = config.at("bch midpoint");
   // Skip this experiment if result already exists, used for batch experimenting.
   bool skip_if_exists = false;
+  double failure_rate = 1e-4;
+  if (config.contains("failure rate")) failure_rate = config.at("failure rate");
   int max_recenter_rounds = 10;
   if (config.contains("max recenter rounds")) max_recenter_rounds = config.at("max recenter rounds");
   if (config.contains("skip if exists")) skip_if_exists = config.at("skip if exists");
+
   if (skip_if_exists && filesystem::exists(save_path)) {
     cout << "Notice: Experiment results already exist. Skipping..." << endl;
     return 0;
+  }
+  std::ofstream fout(save_path);
+  if (!fout.is_open()) {
+    cout << "Error: cannot open file " << save_path << endl;
+    return 1;
   }
 
   mt19937 rng(seed);
@@ -181,6 +257,23 @@ int main(int argc, char* argv[]) {
   unordered_set<int> setB(rand_vec.begin() + A_minus_B_size, rand_vec.end());
   unordered_set<int> setA_minus_B(rand_vec.begin(), rand_vec.begin() + A_minus_B_size);
   unordered_set<int> setB_minus_A(rand_vec.begin() + A_size, rand_vec.end());
+
+  if (bch_order < 0 || bch_capacity < 0) {
+    while(true) {
+      auto auto_parameter = doro_parameter_tuning(d, k, A_minus_B_size, B_minus_A_size);
+      tie(lb, ub, bch_order, bch_capacity) =
+        tie(auto_parameter.lb, auto_parameter.ub, auto_parameter.bch_order, auto_parameter.bch_capacity);
+      cout << "Automatically selected the following parameters: lb = " << lb << ", ub = " << ub << ", bch_order = " << bch_order
+        << ", bch_capacity = " << bch_capacity << endl;
+      config["lb"] = lb;
+      config["ub"] = ub;
+      config["bch order"] = bch_order;
+      config["bch capacity"] = bch_capacity;
+      
+      break;
+    }
+    
+  }
 
   DoroCode<CounterType> doro(d, k, counting, rng, lb, ub);
   // copy to keep the same set of hash functions
@@ -225,8 +318,8 @@ int main(int argc, char* argv[]) {
     if (bch_encoding) {
       data_decode.push_back(encoder_value / interval_size % 2);
     }
-    
-    
+
+
     doro.code()[i] = diff; // recentered difference
   }
   if (bch_encoding) {
@@ -273,6 +366,12 @@ int main(int argc, char* argv[]) {
   config["number of recenters"] = 0;
 
   Party party = Party::Alis;
+  if (s < 0 || s2 < 0) {
+    auto [s_prime, s2_prime] = signature_length(A_minus_B_size, B_minus_A_size, failure_rate);
+    s = s_prime;
+    s2 = s2_prime;
+    println("Use the following signature lengths: s = {}, s2 = {}", s, s2);
+  }
   if (s > 31) {
     println("Warning: signature size is too large. Reset to 31.");
     s = 31;
@@ -283,11 +382,12 @@ int main(int argc, char* argv[]) {
     println("Warning: resolving signature size is too large. Reset to 31.");
     s2 = 31;
   }
+  assert(s >= 0 && s2 >= 0);
   unsigned int mask2 = (1 << s2) - 1;
   WYHash resolving_hash(mask2, /*mode*/ 0, /*seed*/ rng());
 
   Status status = Status::CollisionAvoiding;
-  DoroDecoder<CounterType> decoder_alis(max_recenter_rounds, &finger_hash, &resolving_hash), 
+  DoroDecoder<CounterType> decoder_alis(max_recenter_rounds, &finger_hash, &resolving_hash),
     decoder_bela(max_recenter_rounds, &finger_hash, &resolving_hash);
   DecodeConfig dconf_alis(tk, max_rounds, to, ta, /*verbose*/ false, /*debug*/ false, /*lb*/ -1, /*ub*/ 0, PursuitChoice::L2),
     dconf_bela(tk, max_rounds, to, ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, PursuitChoice::L2);
@@ -350,7 +450,7 @@ int main(int argc, char* argv[]) {
     }
 
     int unresolved_size = decoder.unresolved_elements().size();
-    double resolving_cost = unresolved_size * (s2);
+    double resolving_cost = unresolved_size * (s + s2);
     if (!decoder.unresolved_elements().empty()) {
       int num_unresolved = decoder.unresolved_elements().size();
       actual_comm_rounds = std::max(actual_comm_rounds, comm_rounds + 2); // need an additional resolving round
@@ -394,7 +494,7 @@ int main(int argc, char* argv[]) {
   config["total communication cost"] = total_comm_cost;
   config["success"] = success;
 
-  std::ofstream fout(save_path);
+  
   fout << std::setw(4) << config << endl;  // indent 4
   return 0;
 }

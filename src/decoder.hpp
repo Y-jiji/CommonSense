@@ -274,6 +274,9 @@ private:
   ArrType new_strength2(int element, ArrType strength, ArrType delta, int k) const {
     bool is_l2 = config_->pursuit_choice == PursuitChoice::L2;
     ArrType new_str = is_l2 ? strength + delta * k : code_->sense_l1(element);
+    if (element == 1926400) {
+      code_->print_key(1926400);
+    }
     assert(!is_l2 || new_str == code_->sense(element));
     // the bookkeeping of strengths should always be correct
     return new_str;

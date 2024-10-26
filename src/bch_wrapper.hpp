@@ -15,6 +15,9 @@ public:
   // if primitive_polynomial is 0, the default one will be used.
   BCHWrapper(int order, int capability, unsigned primitive_polynomial = 0)
     : bch_(init_bch(order, capability, primitive_polynomial)) {
+    if (!bch_) {
+      throw std::runtime_error("Failed to initialize BCH codec.");
+    }
   }
   // forbid copy and move
   BCHWrapper(const BCHWrapper&) = delete;

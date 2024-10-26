@@ -1,0 +1,30 @@
+{
+  "script": [
+    "ROOT/build/two_party",
+    "JSON"
+  ],
+  "root path": "/media/mydrive/CDMA",
+  "max process": 34,
+  "seed": 300480306,
+  "universe": 2000000,
+  "A size": 1000000,
+  "B size": 1000000,
+  "A minus B size": 10000,
+  "k": 9,
+  "d": 200000,
+  "s": 20,
+  "s2": 16,
+  "id": 1,
+  "tk": 100,
+  "max rounds": 1000,
+  "max comm rounds": 15,
+  "counting": true,
+  "to": 6,
+  "lb": -2,
+  "ub": 3,
+  "bch encoding": true,
+  "bch order": 10,
+  "bch capacity": ["ITER_RANGE", 10, 31, 2],
+  "resolving round": 1,
+  "result filename": "result/threshold/t{bch capacity}_seed{seed}.json"
+}

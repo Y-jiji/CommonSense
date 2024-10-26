@@ -1,0 +1,27 @@
+{
+  "script": [
+    "ROOT/build/two_party",
+    "JSON"
+  ],
+  "root path": "/media/mydrive/CDMA",
+  "max process": 34,
+  "seed": 300480306,
+  "universe": 2000000,
+  "A size": 100000,
+  "B size": 101000,
+  "A minus B size": 0,
+  "k": 8,
+  "d": 8000,
+  "id": 1,
+  "tk": 100,
+  "max rounds": 1000,
+  "max comm rounds": 15,
+  "counting": true,
+  "to": 6,
+  "bch encoding": true,
+  "resolving round": 1,
+  "lb": 0,
+  "ub": 6,
+  "bch midpoint": 10,
+  "result filename": "/media/mydrive/CDMA/result/threshold/test.json"
+}

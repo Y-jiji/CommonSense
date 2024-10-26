@@ -15,6 +15,9 @@ find_package(libONIAK REQUIRED)
 
 add_subdirectory(external/bch_codec)
 
+FIND_PACKAGE( Boost REQUIRED )
+INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
+
 add_executable(two_party "src/two_party.cpp")
 include_directories("external")
 include_directories("src")

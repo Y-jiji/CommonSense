@@ -42,7 +42,7 @@
   "C_Cpp.errorSquiggles": "enabled",
   "cmake.debugConfig": {
     "args": [
-      "${workspaceFolder}/config/one_side_mud.json"
+      "${workspaceFolder}/config/threshold2.json"
     ]
   }
 }
