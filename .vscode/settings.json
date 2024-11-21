@@ -37,7 +37,9 @@
     "type_traits": "cpp",
     "tuple": "cpp",
     "sparsetable": "cpp",
-    "format": "cpp"
+    "format": "cpp",
+    "deque": "cpp",
+    "vector": "cpp"
   },
   "C_Cpp.errorSquiggles": "enabled",
   "cmake.debugConfig": {

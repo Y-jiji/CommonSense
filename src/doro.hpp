@@ -14,6 +14,10 @@
 #include <vector>
 
 namespace Doro {
+
+constexpr int kDoroNumHashFuncs = 30;
+constexpr int kDoroNumHashFuncsMargin = 10;
+
 template <typename ArrType = int32_t>
 class DoroCode {
 public:
@@ -25,10 +29,10 @@ public:
   DoroCode(int size, int k, bool is_cbf, RandomDevice& rng, int lb = 0, int ub=0) :
    arr_(size), is_cbf_(is_cbf), k_(k), num_peels_(0), num_correct_peels_(0),
     num_recenters_(0), lb_(lb), ub_(ub), interval_(ub-lb) {
-    hash_funcs_.reserve(k_);
-    for ([[maybe_unused]] int i : std::views::iota(0, k_)) {
-      hash_funcs_.emplace_back(/*mask*/ 0, /*mod*/ 2 * size, /*seed*/ rng());
-    }
+    int num_hash_funcs = std::max(kDoroNumHashFuncs, k + kDoroNumHashFuncsMargin);
+    hash_funcs_.reserve(num_hash_funcs);
+    std::ranges::for_each(std::views::iota(0, num_hash_funcs), 
+      [&](int){hash_funcs_.emplace_back(/*mask*/ 0, /*mod*/ 2 * size, /*seed*/ rng());});
   }
 
   void encode(const SparseVector& kvpairs) {
