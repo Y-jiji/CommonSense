@@ -26,20 +26,20 @@ public:
   using PairType = std::pair<IndexType, ArrType>;
 
   template <typename RandomDevice>
-  DoroCode(int size, int k, bool is_cbf, RandomDevice& rng, int lb = 0, int ub=0) :
-   arr_(size), is_cbf_(is_cbf), k_(k), num_peels_(0), num_correct_peels_(0),
-    num_recenters_(0), lb_(lb), ub_(ub), interval_(ub-lb) {
+  DoroCode(int size, int k, bool is_cbf, RandomDevice& rng, int lb = 0, int ub = 0) :
+    arr_(size), is_cbf_(is_cbf), k_(k), num_peels_(0), num_correct_peels_(0),
+    num_recenters_(0), lb_(lb), ub_(ub), interval_(ub - lb) {
     int num_hash_funcs = std::max(kDoroNumHashFuncs, k + kDoroNumHashFuncsMargin);
     hash_funcs_.reserve(num_hash_funcs);
-    std::ranges::for_each(std::views::iota(0, num_hash_funcs), 
-      [&](int){hash_funcs_.emplace_back(/*mask*/ 0, /*mod*/ 2 * size, /*seed*/ rng());});
+    std::ranges::for_each(std::views::iota(0, num_hash_funcs),
+      [&](int) {hash_funcs_.emplace_back(/*mask*/ 0, /*mod*/ 2 * size, /*seed*/ rng());});
   }
 
   void encode(const SparseVector& kvpairs) {
     assert(values_.empty());
     for (auto [x, val] : kvpairs) {
-      for (int i : std::views::iota(0, k_)) {
-        auto [index, sign] = hash(i, x);
+      auto all_hashes = hash_all(x);
+      for (auto [index, sign] : all_hashes) {
         arr_[index] += sign * val;
       }
       values_[x] = val;
@@ -50,8 +50,8 @@ public:
   // or INCREASED by 1 (if negative sign)
   void peel(int element, ArrType delta) {
     num_peels_ += 1;
-    for (int i : std::views::iota(0, k_)) {
-      auto [index, sign] = hash(i, element);
+    auto all_hashes = hash_all(element);
+    for (auto [index, sign] : all_hashes) {
       arr_[index] -= sign * delta;
     }
     auto element_iter = values_.find(element);
@@ -66,16 +66,16 @@ public:
   // performance bottleneck
   ArrType sense(int element) const {
     ArrType signal = 0;
-    for (int i : std::views::iota(0, k_)) {
-      auto [index, sign] = hash(i, element);
+    auto all_hashes = hash_all(element);
+    for (auto [index, sign] : all_hashes) {
       signal += sign * arr_[index];
     }
     return signal;
   }
 
   void print_key(int element) const {
-    for (int i : std::views::iota(0, k_)) {
-      auto [index, sign] = hash(i, element);
+    auto all_hashes = hash_all(element);
+    for (auto [index, sign] : all_hashes) {
       std::cout << index << "\\" << sign * arr_[index] << " ";
     }
     std::cout << std::endl;
@@ -91,10 +91,10 @@ public:
 
   // Returns median signal. If k_ is even, returns the smaller one in absolute value.
   ArrType sense_l1(int element) const {
-    std::vector<ArrType> signals(k_);
-    for (int i : std::views::iota(0, k_)) {
-      auto [index, sign] = hash(i, element);
-      signals[i] = sign * arr_[index];
+    std::vector<ArrType> signals;
+    auto all_hashes = hash_all(element);
+    for (auto [index, sign] : all_hashes) {
+      signals.push_back(sign * arr_[index]);
     }
     auto med_iter = signals.begin() + k_ / 2;
     std::nth_element(signals.begin(), med_iter, signals.end());
@@ -122,14 +122,16 @@ public:
   // if colliding under opposite signs, return 2
   int is_colliding(int element) const {
     std::unordered_map<int, int> hash_to_sign;
-    for (auto i : std::views::iota(0, k_)) {
-      auto [index, sign] = hash(i, element);
+    auto all_hashes = hash_all(element);
+    for (auto [index, sign] : all_hashes) {
       auto iter = hash_to_sign.find(index);
       if (iter == hash_to_sign.end()) {
         hash_to_sign[index] = sign;
-      } else if (iter->second != sign) {
+      }
+      else if (iter->second != sign) {
         return 2;
-      } else {
+      }
+      else {
         return 1;
       }
     }
@@ -167,11 +169,24 @@ public:
     std::cout << "L1 Norm of indices: " << mae() << std::endl;
   }
 
-  std::pair<IndexType, int> hash(int i, IndexType x) const {
-    int hash_value = hash_funcs_[i].hash_in_range(x);
-    int idx = (hash_value >= size()) ? hash_value - size() : hash_value;
-    int sign = (is_cbf_ || hash_value < size()) ? 1 : -1;
-    return { idx, sign };
+  // // deprecated because it is slow.
+  // std::pair<IndexType, int> hash(int i, IndexType x) const {
+  //   return hash_all(x)[i];
+  // }
+  
+  std::vector<std::pair<IndexType, int>> hash_all(IndexType x) const {
+    std::vector<std::pair<IndexType, int>> all_hashes;
+    all_hashes.reserve(k_);
+    for (auto& hfunc : hash_funcs_) {
+      int hash_value = hfunc.hash_in_range(x);
+      int idx = (hash_value >= size()) ? hash_value - size() : hash_value;
+      int sign = (is_cbf_ || hash_value < size()) ? 1 : -1;
+      if (!std::ranges::contains(all_hashes, idx, [](auto x) {return x.first;}))
+        all_hashes.emplace_back(idx, sign);
+        // otherwise reject this sample.
+      if (all_hashes.size() == static_cast<size_t>(k_)) return all_hashes;
+    }
+    throw std::runtime_error("Error: Run out of hash functions.");
   }
 
   bool is_cbf() const { return is_cbf_; }

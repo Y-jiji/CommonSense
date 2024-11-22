@@ -64,16 +64,16 @@ public:
       ArrType cur_element_value = (cur_iter != result_.end()) ? cur_iter->second : 0;
       result_[element] = cur_element_value + delta;
       priority_queue_.pop();
-      int colliding_compensation = 0;
-      if (colliding1_.contains(element))
-        colliding_compensation = 2;
-      else if (colliding2_.contains(element))
-        colliding_compensation = -2;
-      priority_queue_.set(element, new_strength2(element, strength, -delta, code_->k() + colliding_compensation));
+      // int colliding_compensation = 0;  // not needed in new rejection sampling hashing
+      // if (colliding1_.contains(element))
+      //   colliding_compensation = 2;
+      // else if (colliding2_.contains(element))
+      //   colliding_compensation = -2;+ colliding_compensation
+      priority_queue_.set(element, new_strength2(element, strength, -delta, code_->k()));
 
       affected_neighbors_.clear();
-      for (int i : std::views::iota(0, code_->k())) {
-        auto [index, sign] = code_->hash(i, element);
+      auto all_hashes = code_->hash_all(element);
+      for (auto[index, sign] : all_hashes) {
         notify_neighbors(element, index, -sign * delta);  // minus because the counter is reduced by delta
       }
       update_neighbor_strengths();
@@ -103,8 +103,8 @@ public:
     bool is_l2 = config_->pursuit_choice == PursuitChoice::L2; // else is l1
 
     for (int element : setA) {
-      for (int i : std::views::iota(0, code_->k())) {
-        auto [index, sign] = code_->hash(i, element);
+      auto all_hashes = code_->hash_all(element);
+      for (auto [index, sign] : all_hashes) {
         if (sign > 0)
           neighbors_[index].push_back(element);
         else neighbors2_[index].push_back(element);
