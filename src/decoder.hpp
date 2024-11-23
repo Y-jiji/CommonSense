@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cassert>
 #include <format>
+#include <functional>
 #include <iostream>
 #include <map>
 #include <ranges>
@@ -274,9 +275,6 @@ private:
   ArrType new_strength2(int element, ArrType strength, ArrType delta, int k) const {
     bool is_l2 = config_->pursuit_choice == PursuitChoice::L2;
     ArrType new_str = is_l2 ? strength + delta * k : code_->sense_l1(element);
-    if (element == 1926400) {
-      code_->print_key(1926400);
-    }
     assert(!is_l2 || new_str == code_->sense(element));
     // the bookkeeping of strengths should always be correct
     return new_str;
@@ -309,11 +307,17 @@ private:
   // in case of quantization error, recenter all counters to within the range [lb, ub)
   void recenter_code() {
     affected_neighbors_.clear();
-    for (int i : std::views::iota(0, code_->size())) {
-      ArrType cur_value = code_->code()[i];
-      ArrType new_value = code_->recenter(cur_value);
-      ArrType delta = new_value - cur_value;
-      if (std::abs(delta) > 1e-6) {
+    ArrType max_delta = std::ranges::max(code_->code(), {}, 
+        std::bind(&DoroCodeT::deviation, code_, std::placeholders::_1)); // calls member function
+    max_delta = code_->deviation(max_delta);
+    std::cout << "max delta: " << max_delta << std::endl;
+    if (max_delta <= 1) return;
+    for (auto [i, cur_value] : code_->code() | std::views::enumerate) {
+      if (code_->deviation(cur_value) > 0)
+      //  std::cout << "deviation: " << code_->deviation(cur_value) << std::endl;
+      if (code_->deviation(cur_value) == max_delta) {
+        ArrType new_value = code_->recenter(cur_value);
+        ArrType delta = new_value - cur_value;
         code_->code()[i] = new_value;
         ++code_->num_recenters();
         notify_neighbors(-1, i, delta);  

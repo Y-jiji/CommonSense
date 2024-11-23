@@ -53,8 +53,8 @@ bool get_sizes(const std::unordered_map<int, CounterType>& result1,
     else {
       ++A_intersect_B_remaining_size;
 #ifdef ONIAK_DEBUG
-      //std::cout << key << "\t";
-      //doro.print_key(key);
+      std::cout << key << "A intersect B \t";
+    doro.print_key(key);
 #endif
     }
   }
@@ -65,28 +65,31 @@ bool get_sizes(const std::unordered_map<int, CounterType>& result1,
     else {
       ++A_intersect_B_remaining_size;
 #ifdef ONIAK_DEBUG
-      //std::cout << key << "\t";
-      //doro.print_key(key);
+      std::cout << key << "\t A intersect B \t";
+     doro.print_key(key);
 #endif
     }
   }
   config["A minus B remaining"].push_back(A_minus_B_remaining_size);
   config["B minus A remaining"].push_back(B_minus_A_remaining_size);
   config["A intersect B remaining"].push_back(A_intersect_B_remaining_size);
+  std::cout << "A minus B remaining: " << A_minus_B_remaining_size << std::endl;
+  std::cout << "B minus A remaining: " << B_minus_A_remaining_size << std::endl;
+  std::cout << "A intersect B remaining: " << A_intersect_B_remaining_size << std::endl;
 
 #ifdef ONIAK_DEBUG
   for (auto value : setA_minus_B) {
     if ((!result1.contains(value) || result1.at(value) == 0)
       && (!result2.contains(value) || result2.at(value) == 0)) {
-      //std::cout << value << "\t";
-      //doro.print_key(value);
+    std::cout << value << " A minus B \t";
+      doro.print_key(value);
     }
   }
   for (auto value : setB_minus_A) {
     if ((!result1.contains(value) || result1.at(value) == 0)
       && (!result2.contains(value) || result2.at(value) == 0)) {
-      //std::cout << value << "\t";
-      //doro.print_key(value);
+     std::cout << value << " B minus A \t";
+     doro.print_key(value);
     }
   }
 #endif
@@ -124,6 +127,7 @@ Skellam moment_fit_skellam(const DoroCode<T>& code) {
 
 struct doro_parameter {
   int lb, ub, bch_order, bch_capacity;
+  double midpoint;
 };
 
 double cost_estimation(doro_parameter para) {
@@ -161,6 +165,18 @@ doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_min
         }
       }
     }
+  }
+  int interval = best_para.ub - best_para.lb;
+  best_para.midpoint = best_para.ub; // default midpoint
+  double high_cdf2 = (*cdf.try_emplace(best_para.lb - 1 + interval, 0).first).second;
+  for (int mid = best_para.lb - 1; mid < best_para.ub; ++mid){
+    double low_cdf = (*cdf.try_emplace(mid + 1 - interval, 0).first).second;
+    double high_cdf = (*cdf.try_emplace(mid + interval + 1, 0).first).second;
+    if (low_cdf >= high_cdf) {
+      best_para.midpoint = mid + ((low_cdf < high_cdf2 + 1e-6)? 0 : 0.5);
+      break;
+    }
+    high_cdf2 = high_cdf;
   }
   return best_para;
 }
@@ -261,18 +277,16 @@ int main(int argc, char* argv[]) {
   if (bch_order < 0 || bch_capacity < 0) {
     while(true) {
       auto auto_parameter = doro_parameter_tuning(d, k, A_minus_B_size, B_minus_A_size);
-      tie(lb, ub, bch_order, bch_capacity) =
-        tie(auto_parameter.lb, auto_parameter.ub, auto_parameter.bch_order, auto_parameter.bch_capacity);
+      tie(lb, ub, bch_order, bch_capacity, bch_midpoint) =
+        tie(auto_parameter.lb, auto_parameter.ub, auto_parameter.bch_order, auto_parameter.bch_capacity, auto_parameter.midpoint);
       cout << "Automatically selected the following parameters: lb = " << lb << ", ub = " << ub << ", bch_order = " << bch_order
-        << ", bch_capacity = " << bch_capacity << endl;
+        << ", bch_capacity = " << bch_capacity << ", midpoint = " << bch_midpoint<< endl;
       config["lb"] = lb;
       config["ub"] = ub;
       config["bch order"] = bch_order;
       config["bch capacity"] = bch_capacity;
-      
       break;
     }
-    
   }
 
   DoroCode<CounterType> doro(d, k, counting, rng, lb, ub);
@@ -318,8 +332,6 @@ int main(int argc, char* argv[]) {
     if (bch_encoding) {
       data_decode.push_back(encoder_value / interval_size % 2);
     }
-
-
     doro.code()[i] = diff; // recentered difference
   }
   if (bch_encoding) {

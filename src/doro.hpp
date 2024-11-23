@@ -89,6 +89,11 @@ public:
     return x;
   }
 
+  ArrType deviation(ArrType x) const {
+    if (interval_ <= 0 || (x >= lb_ && x < ub_)) return 0;
+    return std::max(lb_ - x, x - ub_ + 1);
+  }
+
   // Returns median signal. If k_ is even, returns the smaller one in absolute value.
   ArrType sense_l1(int element) const {
     std::vector<ArrType> signals;
