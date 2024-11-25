@@ -5,7 +5,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 set(CMAKE_CXX_FLAGS "-Wall")
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -fno-inline-small-functions -DONIAK_DEBUG")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -fno-inline-small-functions ") # -DONIAK_DEBUG
 set(CMAKE_CXX_FLAGS_RELEASE "-g -O3")
 set(CMAKE_CXX_STANDARD 23)
 set(INCLUDE_TESTS ON)

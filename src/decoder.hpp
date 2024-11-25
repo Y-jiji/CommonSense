@@ -26,8 +26,6 @@ enum class PursuitChoice {
 struct DecodeConfig {
   int tk, max_stage; // used for stage decode.
   // tk is stage size
-  int to; // minimum signal strength for decoding
-  // if to is minus, then any strength is valid as long as delta > 0
   int ta; // terminate if any element thrashes for ta times.
   bool verbose, debug;
   // lower and upper bound of value range
@@ -227,9 +225,8 @@ public:
     // if fingerprint mechanism is active, then this element must not collide with any known fingerprint
     // this is set to avoid the case in which one party adds an element, and another party subtracts it.
     bool fingerprint_condition = (finger_hash_ == nullptr) || !fingerprints_.contains((*finger_hash_)(element));
-    bool to_condition = (config_->to < 0) || (std::abs(strength) >= config_->to);
     bool delta_condition = (std::abs(delta) > 1e-6);
-    if ((collision_resolving_ || fingerprint_condition) && to_condition && delta_condition)
+    if ((collision_resolving_ || fingerprint_condition) && delta_condition)
       priority_queue_.push(element, strength);
     else
       priority_queue_.set(element, strength);

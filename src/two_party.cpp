@@ -224,8 +224,6 @@ int main(int argc, char* argv[]) {
   if (config.contains("tk")) tk = config.at("tk");
   int ta = 5;
   if (config.contains("ta")) ta = config.at("ta");
-  int to = -1;
-  if (config.contains("to")) to = config.at("to");
   int lb = -1;
   if (config.contains("lb")) lb = config.at("lb");
   int ub = -1;
@@ -401,8 +399,8 @@ int main(int argc, char* argv[]) {
   Status status = Status::CollisionAvoiding;
   DoroDecoder<CounterType> decoder_alis(max_recenter_rounds, &finger_hash, &resolving_hash),
     decoder_bela(max_recenter_rounds, &finger_hash, &resolving_hash);
-  DecodeConfig dconf_alis(tk, max_rounds, to, ta, /*verbose*/ false, /*debug*/ false, /*lb*/ -1, /*ub*/ 0, PursuitChoice::L2),
-    dconf_bela(tk, max_rounds, to, ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, PursuitChoice::L2);
+  DecodeConfig dconf_alis(tk, max_rounds, ta, /*verbose*/ false, /*debug*/ false, /*lb*/ -1, /*ub*/ 0, PursuitChoice::L2),
+    dconf_bela(tk, max_rounds, ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, PursuitChoice::L2);
   StopWatch sw;
   unordered_map<int, CounterType> result_alis, result_bela;
   // elements whose fingerprints have been transmitted
