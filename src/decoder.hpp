@@ -24,8 +24,6 @@ enum class PursuitChoice {
   L2
 };
 struct DecodeConfig {
-  int tk, max_stage; // used for stage decode.
-  // tk is stage size
   int ta; // terminate if any element thrashes for ta times.
   bool verbose, debug;
   // lower and upper bound of value range

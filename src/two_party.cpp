@@ -150,6 +150,7 @@ doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_min
 
   doro_parameter best_para;
   double best_cost = 100000.0;
+
   for (int ub = mean+1; ub < k1; ++ub) {
     for (int lb = mean; lb > k2; --lb) {
       double diff_err = 1.0 - cdf.at(ub) + cdf.at(lb);
@@ -220,8 +221,6 @@ int main(int argc, char* argv[]) {
   if (config.contains("s")) s = config.at("s");   // signature size
   int s2 = -1;               // resolving signature size
   if (config.contains("s2")) s2 = config.at("s2");
-  int tk = 20;  // stage decode
-  if (config.contains("tk")) tk = config.at("tk");
   int ta = 5;
   if (config.contains("ta")) ta = config.at("ta");
   int lb = -1;
@@ -229,8 +228,6 @@ int main(int argc, char* argv[]) {
   int ub = -1;
   if (config.contains("ub")) ub = config.at("ub");
   std::string save_path = config.at("result filename");
-  int max_rounds = 1'0000'0000;
-  if (config.contains("max rounds")) max_rounds = config.at("max rounds");
   int max_comm_rounds = 20;
   if (config.contains("max comm rounds")) max_comm_rounds = config.at("max comm rounds");
   int resolving_round = -1;  // at this round, always start resolving
@@ -399,8 +396,8 @@ int main(int argc, char* argv[]) {
   Status status = Status::CollisionAvoiding;
   DoroDecoder<CounterType> decoder_alis(max_recenter_rounds, &finger_hash, &resolving_hash),
     decoder_bela(max_recenter_rounds, &finger_hash, &resolving_hash);
-  DecodeConfig dconf_alis(tk, max_rounds, ta, /*verbose*/ false, /*debug*/ false, /*lb*/ -1, /*ub*/ 0, PursuitChoice::L2),
-    dconf_bela(tk, max_rounds, ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, PursuitChoice::L2);
+  DecodeConfig dconf_alis(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ -1, /*ub*/ 0, PursuitChoice::L2),
+    dconf_bela(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, PursuitChoice::L2);
   StopWatch sw;
   unordered_map<int, CounterType> result_alis, result_bela;
   // elements whose fingerprints have been transmitted

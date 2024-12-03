@@ -26,7 +26,7 @@ namespace Doro {
         if (k < 0) return std::numeric_limits<double>::quiet_NaN();
         else return std::exp(-mu1_ + k * std::log(mu1_) - std::lgamma(k + 1));
       }
-      return std::exp(-mu1_ - mu2_) * std::pow(mu1_ / mu2_, k / 2) * std::cyl_bessel_i(std::abs(k), 2 * sqrt(mu1_ * mu2_));
+      return std::exp(-mu1_ - mu2_) * std::pow(mu1_ / mu2_, static_cast<double>(k)/ 2) * std::cyl_bessel_i(std::abs(k), 2 * sqrt(mu1_ * mu2_));
     }
 
     // skellam may have negative values
