@@ -1,13 +1,14 @@
-#include "bch_wrapper.hpp"
-#include "doro.hpp"
-#include "decoder.hpp"
-#include "probability.hpp"
-#include "rans_wrapper.hpp"
+#include <doro/bch_wrapper.hpp>
+#include <doro/doro.hpp>
+#include <doro/decoder.hpp>
+#include <doro/probability.hpp>
+#include <doro/rans_wrapper.hpp>
 
-#include <oniakDataStructure/ohist.h>
-#include "oniakDebug/odebug.h"
-#include "oniakRandom/orand.h"
-#include "oniakTimer/otime.h"
+#include "libONIAK/global.h"
+#include "libONIAK/oniakDataStructure/ohist.h"
+#include "libONIAK/oniakDebug/odebug.h"
+#include "libONIAK/oniakRandom/orand.h"
+#include "libONIAK/oniakTimer/otime.h"
 #include "nlohmann/json.hpp"
 
 #include <algorithm>
@@ -25,7 +26,6 @@
 #include <unordered_set>
 
 #include <boost/math/distributions/binomial.hpp>
-
 
 using namespace std;
 using namespace Doro;
@@ -54,7 +54,7 @@ bool get_sizes(const std::unordered_map<int, CounterType>& result1,
       ++A_intersect_B_remaining_size;
 #ifdef ONIAK_DEBUG
       std::cout << key << "A intersect B \t";
-    doro.print_key(key);
+      doro.print_key(key);
 #endif
     }
   }
@@ -66,7 +66,7 @@ bool get_sizes(const std::unordered_map<int, CounterType>& result1,
       ++A_intersect_B_remaining_size;
 #ifdef ONIAK_DEBUG
       std::cout << key << "\t A intersect B \t";
-     doro.print_key(key);
+      doro.print_key(key);
 #endif
     }
   }
@@ -81,17 +81,17 @@ bool get_sizes(const std::unordered_map<int, CounterType>& result1,
   for (auto value : setA_minus_B) {
     if ((!result1.contains(value) || result1.at(value) == 0)
       && (!result2.contains(value) || result2.at(value) == 0)) {
-    std::cout << value << " A minus B \t";
+      std::cout << value << " A minus B \t";
       doro.print_key(value);
     }
   }
   for (auto value : setB_minus_A) {
     if ((!result1.contains(value) || result1.at(value) == 0)
       && (!result2.contains(value) || result2.at(value) == 0)) {
-     std::cout << value << " B minus A \t";
-     doro.print_key(value);
+      std::cout << value << " B minus A \t";
+      doro.print_key(value);
     }
-  }
+}
 #endif
   return A_minus_B_remaining_size == 0 && B_minus_A_remaining_size == 0 && A_intersect_B_remaining_size == 0;
 }
@@ -118,7 +118,8 @@ Skellam moment_fit_skellam(const DoroCode<T>& code) {
     mu2 = (variance - mean) / 2.0;
     if (mu1 < 0) mu1 = 0;
     if (mu2 < 0) mu2 = 0;
-  } else {
+  }
+  else {
     if (variance < 0) variance = 0;
     mu1 = mu2 = variance / 2.0;
   }
@@ -151,7 +152,7 @@ doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_min
   doro_parameter best_para;
   double best_cost = 100000.0;
 
-  for (int ub = mean+1; ub < k1; ++ub) {
+  for (int ub = mean + 1; ub < k1; ++ub) {
     for (int lb = mean; lb > k2; --lb) {
       double diff_err = 1.0 - cdf.at(ub) + cdf.at(lb);
       if (diff_err < diff_coding_error_min || diff_err > diff_coding_error_max) continue;
@@ -170,11 +171,11 @@ doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_min
   int interval = best_para.ub - best_para.lb;
   best_para.midpoint = best_para.ub; // default midpoint
   double high_cdf2 = (*cdf.try_emplace(best_para.lb - 1 + interval, 0).first).second;
-  for (int mid = best_para.lb - 1; mid < best_para.ub; ++mid){
+  for (int mid = best_para.lb - 1; mid < best_para.ub; ++mid) {
     double low_cdf = (*cdf.try_emplace(mid + 1 - interval, 0).first).second;
     double high_cdf = (*cdf.try_emplace(mid + interval + 1, 0).first).second;
     if (low_cdf >= high_cdf) {
-      best_para.midpoint = mid + ((low_cdf < high_cdf2 + 1e-6)? 0 : 0.5);
+      best_para.midpoint = mid + ((low_cdf < high_cdf2 + 1e-6) ? 0 : 0.5);
       break;
     }
     high_cdf2 = high_cdf;
@@ -233,7 +234,7 @@ int main(int argc, char* argv[]) {
   int resolving_round = -1;  // at this round, always start resolving
   if (config.contains("resolving round")) resolving_round = config.at("resolving round");
   bool counting = config.at("counting");
-  bool bch_encoding = false;
+  bool bch_encoding = true;
   if (config.contains("bch encoding")) bch_encoding = config.at("bch encoding");
   int bch_order = -1, bch_capacity = -1;
   if (bch_encoding && config.contains("bch order") && config.contains("bch capacity")) {
@@ -246,10 +247,12 @@ int main(int argc, char* argv[]) {
   bool skip_if_exists = false;
   double failure_rate = 1e-4;
   if (config.contains("failure rate")) failure_rate = config.at("failure rate");
-  int max_recenter_rounds = 10;
+  int max_recenter_rounds = 100;
   if (config.contains("max recenter rounds")) max_recenter_rounds = config.at("max recenter rounds");
-  if (config.contains("skip if exists")) skip_if_exists = config.at("skip if exists");
+  int max_num_peels = -1;
+  if (config.contains("max num peels")) max_num_peels = config.at("max num peels");
 
+  if (config.contains("skip if exists")) skip_if_exists = config.at("skip if exists");
   if (skip_if_exists && filesystem::exists(save_path)) {
     cout << "Notice: Experiment results already exist. Skipping..." << endl;
     return 0;
@@ -270,12 +273,12 @@ int main(int argc, char* argv[]) {
   unordered_set<int> setB_minus_A(rand_vec.begin() + A_size, rand_vec.end());
 
   if (bch_order < 0 || bch_capacity < 0) {
-    while(true) {
+    while (true) {
       auto auto_parameter = doro_parameter_tuning(d, k, A_minus_B_size, B_minus_A_size);
       tie(lb, ub, bch_order, bch_capacity, bch_midpoint) =
         tie(auto_parameter.lb, auto_parameter.ub, auto_parameter.bch_order, auto_parameter.bch_capacity, auto_parameter.midpoint);
       cout << "Automatically selected the following parameters: lb = " << lb << ", ub = " << ub << ", bch_order = " << bch_order
-        << ", bch_capacity = " << bch_capacity << ", midpoint = " << bch_midpoint<< endl;
+        << ", bch_capacity = " << bch_capacity << ", midpoint = " << bch_midpoint << endl;
       config["lb"] = lb;
       config["ub"] = ub;
       config["bch order"] = bch_order;
@@ -337,7 +340,8 @@ int main(int argc, char* argv[]) {
       CounterType revision_value = 0;
       if (doro.code()[pos] < bch_midpoint) {
         revision_value = interval_size;
-      } else if (doro.code()[pos] > bch_midpoint) {
+      }
+      else if (doro.code()[pos] > bch_midpoint) {
         revision_value = -interval_size;
       }
       doro.code()[pos] += revision_value;
@@ -396,8 +400,8 @@ int main(int argc, char* argv[]) {
   Status status = Status::CollisionAvoiding;
   DoroDecoder<CounterType> decoder_alis(max_recenter_rounds, &finger_hash, &resolving_hash),
     decoder_bela(max_recenter_rounds, &finger_hash, &resolving_hash);
-  DecodeConfig dconf_alis(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ -1, /*ub*/ 0, PursuitChoice::L2),
-    dconf_bela(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, PursuitChoice::L2);
+  DecodeConfig dconf_alis(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ -1, /*ub*/ 0, max_num_peels, PursuitChoice::L2),
+    dconf_bela(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, max_num_peels, PursuitChoice::L2);
   StopWatch sw;
   unordered_map<int, CounterType> result_alis, result_bela;
   // elements whose fingerprints have been transmitted
@@ -482,9 +486,11 @@ int main(int argc, char* argv[]) {
         decoder_alis.enter_resolving();
         decoder_bela.enter_resolving();
         config["round entering resolving"] = actual_comm_rounds;
-      } else if (!no_advance) no_advance = true;
+      }
+      else if (!no_advance) no_advance = true;
       else if (decoder.result() == last_result) status = Status::Finished;
-    } else no_advance = false;
+    }
+    else no_advance = false;
 
     decoder.update_fingerprints(other_decoder);
     last_result = decoder.result();
@@ -501,7 +507,7 @@ int main(int argc, char* argv[]) {
   config["total communication cost"] = total_comm_cost;
   config["success"] = success;
 
-  
+
   fout << std::setw(4) << config << endl;  // indent 4
   return 0;
 }

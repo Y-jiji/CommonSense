@@ -1,7 +1,7 @@
 #ifndef __DORO_HPP__
 #define __DORO_HPP__
 
-#include "oniakHash/ohash.h"
+#include "libONIAK/oniakHash/ohash.h"
 
 #include <algorithm>
 #include <cassert>
@@ -178,7 +178,7 @@ public:
   // std::pair<IndexType, int> hash(int i, IndexType x) const {
   //   return hash_all(x)[i];
   // }
-  
+
   std::vector<std::pair<IndexType, int>> hash_all(IndexType x) const {
     std::vector<std::pair<IndexType, int>> all_hashes;
     all_hashes.reserve(k_);
@@ -188,7 +188,7 @@ public:
       int sign = (is_cbf_ || hash_value < size()) ? 1 : -1;
       if (!std::ranges::contains(all_hashes, idx, [](auto x) {return x.first;}))
         all_hashes.emplace_back(idx, sign);
-        // otherwise reject this sample.
+      // otherwise reject this sample.
       if (all_hashes.size() == static_cast<size_t>(k_)) return all_hashes;
     }
     throw std::runtime_error("Error: Run out of hash functions.");

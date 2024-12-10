@@ -10,7 +10,7 @@
 
 #include <iostream>
 
-#include "rans-tricks-master/rans_byte.h"
+#include "rans-tricks/rans_byte.h"
 
 namespace Doro {
 // set to avoid errors in rANS for non-enough precision.
@@ -30,7 +30,7 @@ public:
   size_t size() const {
     size_t code_size = code_.size() - offset_ - 2; // last two bytes are never used 
     return code_size * 8 + extra_index_.size() * 32 + extra_.size() * 8 + 1  // default_marker
-     + (default_mode_ ? 32 : 0); // four bytes for data length in default mode.
+      + (default_mode_ ? 32 : 0); // four bytes for data length in default mode.
   }
   // raw codes not containing extra data.
   auto code_view() const { return std::views::all(code_) | std::views::drop(offset_); }
@@ -70,7 +70,7 @@ private:
 template <typename T, typename VAL> // type to be compressed
 class RansWrapper {
 public:
-  explicit RansWrapper(const std::unordered_map<T, VAL>& frequencies) 
+  explicit RansWrapper(const std::unordered_map<T, VAL>& frequencies)
     : default_sym_(0), default_mode_(false), new_scale_bits_(prob_bits) {
     if (frequencies.size() < 1) {
       throw std::invalid_argument("empty frequency map.");
@@ -84,7 +84,7 @@ public:
       cum += freq;
       real_cum.push_back(cum);
     }
-    
+
     for (auto cfeq : real_cum) {
       cum_freqs.push_back((cfeq * prob_scale) / cum);
     }
@@ -92,7 +92,7 @@ public:
     for (size_t i = 0; i < frequencies.size(); i++) {
       freqs.push_back(cum_freqs[i + 1] - cum_freqs[i]);
     }
-    
+
     uint32_t scale_down = 1;
     uint32_t max_freqs = *std::max_element(freqs.begin(), freqs.end());
     if (max_freqs > max_symbol_freq) {
@@ -137,7 +137,7 @@ public:
   RansCode encode(const std::vector<T>& data) const {
     RansState rans;
     RansEncInit(&rans);
-    size_t result_size = default_mode_ ? sizeof(T): data.size() * sizeof(T) + 2;
+    size_t result_size = default_mode_ ? sizeof(T) : data.size() * sizeof(T) + 2;
     RansCode result(result_size);
     if (default_mode_) {
       auto result_head = reinterpret_cast<T*>(result.data());
@@ -148,7 +148,7 @@ public:
     }
 
     uint8_t* ptr = result.data();
-    for (int i = data.size()-1; i >= 0; --i) {
+    for (int i = data.size() - 1; i >= 0; --i) {
       const auto& sym = data[i];
       // if symbol is not in frequency table
       // In default mode, the frequency table only contains the default symbol.
@@ -157,13 +157,13 @@ public:
         auto sym_raw = reinterpret_cast<const uint8_t*>(&sym);
         result.extra_.insert(result.extra_.end(), sym_raw, sym_raw + sizeof(T));
         // space to store this data and its index
-        continue; 
+        continue;
       }
       // In default mode, the default symbol is not encoded.
       if (default_mode_) continue;
-      #ifdef ONIAK_DEBUG
+#ifdef ONIAK_DEBUG
       result.rans_states_.push_back(rans);
-      #endif
+#endif
 
       RansEncPutSymbol(&rans, &ptr, &esyms_.at(sym));
       result.offset_ = ptr - result.begin();
@@ -173,24 +173,24 @@ public:
       RansEncFlush(&rans, &ptr);
       result.offset_ = ptr - result.begin();
     }
-    
+
     return result;
   }
 
   std::vector<T> decode(const RansCode& code) const {
     RansState rans;
     const uint8_t* ptr = code.data();
-    RansDecInit(&rans, &ptr);
+    RansDecInit(&rans, const_cast<uint8_t**>(&ptr));
     std::vector<T> result;
     auto extra_index = code.extra_index_.end();
     const uint8_t* extra_ptr = code.extra_.data() + code.extra_.size();
     while (true) {
-      while (extra_index > code.extra_index_.begin() && *(extra_index-1) == result.size()) {
+      while (extra_index > code.extra_index_.begin() && *(extra_index - 1) == result.size()) {
         extra_index--;
         extra_ptr -= sizeof(T);
         // symbol in extra list.
         result.push_back(*reinterpret_cast<const T*>(extra_ptr));
-      } 
+      }
       T sym;
       if (code.default_mode_) {
         sym = *reinterpret_cast<const T*>(code.data());
@@ -201,14 +201,14 @@ public:
       else {
         uint32_t value = RansDecGet(&rans, new_scale_bits_);
         sym = inverse_cum_.at(value);
-        RansDecAdvanceSymbol(&rans, &ptr, &dsyms_.at(sym), new_scale_bits_);
+        RansDecAdvanceSymbol(&rans, const_cast<uint8_t**>(&ptr), &dsyms_.at(sym), new_scale_bits_);
 
-        #ifdef ONIAK_DEBUG
-          if (!code.rans_states_.empty()) {
-            assert(rans == code.rans_states_.back());
-            code.rans_states_.pop_back();
-          }
-        #endif
+#ifdef ONIAK_DEBUG
+        if (!code.rans_states_.empty()) {
+          assert(rans == code.rans_states_.back());
+          code.rans_states_.pop_back();
+        }
+#endif
 
         if (ptr >= code.end()) {
           break;

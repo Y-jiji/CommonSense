@@ -2,13 +2,12 @@
 #define __DORO_DECODER_HPP__
 
 #include "doro.hpp"
-#include "oniakDataStructure/oupq.h"
-#include "oniakHash/ohash.h"
+#include "libONIAK/oniakDataStructure/oupq.h"
+#include "libONIAK/oniakHash/ohash.h"
 
 #include <algorithm>
 #include <cassert>
 #include <format>
-#include <functional>
 #include <iostream>
 #include <map>
 #include <ranges>
@@ -24,6 +23,10 @@ enum class PursuitChoice {
   L2
 };
 struct DecodeConfig {
+  int tk, max_stage; // used for stage decode.
+  // tk is stage size
+  int to; // minimum signal strength for decoding
+  // if to is minus, then any strength is valid as long as delta > 0
   int ta; // terminate if any element thrashes for ta times.
   bool verbose, debug;
   // lower and upper bound of value range
@@ -38,18 +41,99 @@ public:
   using TwoDimVector = std::vector<std::vector<int>>;
   using UpdatePQ = ONIAK::UpdatePQAdapter<int, ArrType, backend>::type;
 
-  DoroDecoder(int max_recenter_rounds = 10, ONIAK::WYHash* finger_hash = nullptr, ONIAK::WYHash* resolving_hash = nullptr) :
-    max_recenter_rounds_(max_recenter_rounds),
+  DoroDecoder(ONIAK::WYHash* finger_hash = nullptr, ONIAK::WYHash* resolving_hash = nullptr) :
     finger_hash_(finger_hash), resolving_hash_(resolving_hash), priority_queue_(
       // function from sensed strength to priority
       [](ArrType a) {return std::abs(a);}
     ), collision_resolving_(false) {
   }
 
-  void peel_until_empty() {
+  int stage_decode(
+    DoroCodeT* code,
+    const std::vector<int>& setA, /*possible candidates of code*/
+    const DecodeConfig* config,
+    std::unordered_map<int, ArrType>*& result) {
+    code_ = code;
+    config_ = config;
+    thrashing_.clear();
+    result = &result_;
+    bool is_l2 = config_->pursuit_choice == PursuitChoice::L2; // else is l1
+    for (int element : setA) {
+      thrashing_[element] = 0;
+    }
+
+    for (int rnd : std::views::iota(0, config_->max_stage)) {
+      std::vector<std::tuple<ArrType, int, ArrType>> signals;
+      for (auto element_thrash : thrashing_) {
+        int element = element_thrash.first;
+        ArrType strength = is_l2 ? code_->sense(element) : code_->sense_l1(element);
+        ArrType delta = strength_to_delta(element, strength);
+        if (std::abs(delta) > 1e-6)
+          signals.emplace_back(-std::abs(strength), element, delta);
+      }
+      std::nth_element(signals.begin(), signals.begin() + config_->tk, signals.end());
+      if (signals.size() > static_cast<size_t>(config_->tk))
+        signals.resize(config_->tk);
+      bool finished = true;
+      for (auto [power, element, delta] : signals) {
+        finished = false;
+        int thrash = thrashing_.find(element)->second;
+        if (thrash > config_->ta) {
+          finished = true;
+          break;
+        }
+        thrashing_[element] = thrash + 1;
+        code_->peel(element, delta);
+        auto cur_iter = result_.find(element);
+        ArrType cur_element_value = (cur_iter != result_.end()) ? cur_iter->second : 0;
+        result_[element] = cur_element_value + delta;
+
+        if (config_->verbose) {
+          std::cout << std::format("thrash: {}, power: {}, element: {}, cur_element_value: {}, delta: {}\n",
+            thrash, power, element, cur_element_value, delta);
+        }
+      }
+      if (config_->verbose) {
+        std::cout << std::format("Round: {}\n", rnd);
+        code_->show_result();
+      }
+      if (finished)
+        return rnd;
+    }
+    return config_->max_stage;
+  }
+
+  int decode_resense(
+    DoroCodeT* code,
+    const std::vector<int>& setA, /*possible candidates of code*/
+    const DecodeConfig* config,
+    std::unordered_map<int, ArrType>*& result) {
+    code_ = code;
+    config_ = config;
+    thrashing_.clear();
+    result = &result_;
+    neighbors_.assign(code_->size(), {});
+    priority_queue_.clear();
+    bool is_l2 = config_->pursuit_choice == PursuitChoice::L2; // else is l1
+
+    for (int element : setA) {
+      for (int i : std::views::iota(0, code_->k())) {
+        auto [index, sign] = code_->hash(i, element);
+        neighbors_[index].push_back(element);
+      }
+      ArrType strength = is_l2 ? code_->sense(element) : code_->sense_l1(element);
+      ArrType delta = strength_to_delta(element, strength);
+
+      if (std::abs(delta) > 1e-6) {
+        priority_queue_.push(element, strength);
+      }
+      else
+        priority_queue_.set(element, strength);
+      // priority_queue_.push(element, code_->sense(element));
+    }
+
     while (!priority_queue_.empty()) {
       auto [strength, element] = priority_queue_.top();
-      new_elements_.insert(element);
       auto thrash_iter = thrashing_.find(element);
       int thrash = (thrash_iter != thrashing_.end()) ? thrash_iter->second : 0;
       if (thrash > config_->ta) break;
@@ -61,26 +145,38 @@ public:
       ArrType cur_element_value = (cur_iter != result_.end()) ? cur_iter->second : 0;
       result_[element] = cur_element_value + delta;
       priority_queue_.pop();
-      // int colliding_compensation = 0;  // not needed in new rejection sampling hashing
-      // if (colliding1_.contains(element))
-      //   colliding_compensation = 2;
-      // else if (colliding2_.contains(element))
-      //   colliding_compensation = -2;+ colliding_compensation
-      priority_queue_.set(element, new_strength2(element, strength, -delta, code_->k()));
+      priority_queue_.set(element, new_strength(element, strength, delta, code_->k()));
 
-      affected_neighbors_.clear();
-      auto all_hashes = code_->hash_all(element);
-      for (auto[index, sign] : all_hashes) {
-        notify_neighbors(element, index, -sign * delta);  // minus because the counter is reduced by delta
+      std::vector<int> affected_neighbors;
+      for (int i : std::views::iota(0, code_->k())) {
+        auto [index, sign] = code_->hash(i, element);
+        affected_neighbors.insert(affected_neighbors.end(), neighbors_[index].begin(), neighbors_[index].end());
       }
-      update_neighbor_strengths();
-
+      // There may be duplicates.
+      std::sort(affected_neighbors.begin(), affected_neighbors.end());
+      for (size_t i : std::views::iota(0u, affected_neighbors.size())) {
+        int neighbor = affected_neighbors[i];
+        int neighbor_cnt = 1;
+        if (neighbor == element)  continue;
+        while (i < affected_neighbors.size() - 1 && neighbor == affected_neighbors[i + 1]) {
+          ++neighbor_cnt;
+          ++i;
+        }
+        ArrType neighbor_strength = new_strength(neighbor, priority_queue_[neighbor], delta, neighbor_cnt);
+        ArrType neighbor_delta = strength_to_delta(neighbor, neighbor_strength);
+        if (std::abs(neighbor_delta) > 1e-6)
+          priority_queue_.update(neighbor, neighbor_strength);
+        else
+          priority_queue_.set(neighbor, neighbor_strength);
+      }
       if (config_->verbose) {
-        std::cout << std::format("thrash: {}, power: {}, element: {}, cur_element_value: {}, delta: {}\n",
-          thrash, strength, element, cur_element_value, delta);
+
+        std::cout << std::format("thrash: {}, power: {}, element: {}, cur_element_value: {}, delta: {}, sl: {}\n",
+          thrash, strength, element, cur_element_value, delta, priority_queue_.size());
         code_->show_result();
       }
     }
+    return code_->num_peels();
   }
 
   int decode(
@@ -100,8 +196,8 @@ public:
     bool is_l2 = config_->pursuit_choice == PursuitChoice::L2; // else is l1
 
     for (int element : setA) {
-      auto all_hashes = code_->hash_all(element);
-      for (auto [index, sign] : all_hashes) {
+      for (int i : std::views::iota(0, code_->k())) {
+        auto [index, sign] = code_->hash(i, element);
         if (sign > 0)
           neighbors_[index].push_back(element);
         else neighbors2_[index].push_back(element);
@@ -115,19 +211,60 @@ public:
       ArrType delta = strength_to_delta(element, strength);
       add_to_priority_queue(element, strength, delta);
     }
+    std::unordered_set<int> new_elements;
+    while (!priority_queue_.empty()) {
+      auto [strength, element] = priority_queue_.top();
+      new_elements.insert(element);
+      auto thrash_iter = thrashing_.find(element);
+      int thrash = (thrash_iter != thrashing_.end()) ? thrash_iter->second : 0;
+      if (thrash > config_->ta) break;
+      thrashing_[element] = thrash + 1;
 
-    // peel the counters until nothing can be done.
-    new_elements_.clear();
-    for (int rnd = 0; rnd < max_recenter_rounds_; ++rnd) {
-      peel_until_empty();
-      if (collision_resolving_) recenter_code();
-      if (priority_queue_.empty()) break;
+      ArrType delta = strength_to_delta(element, strength);
+      code_->peel(element, delta);
+      auto cur_iter = result_.find(element);
+      ArrType cur_element_value = (cur_iter != result_.end()) ? cur_iter->second : 0;
+      result_[element] = cur_element_value + delta;
+      priority_queue_.pop();
+      int colliding_compensation = 0;
+      if (colliding1_.contains(element))
+        colliding_compensation = 2;
+      else if (colliding2_.contains(element))
+        colliding_compensation = -2;
+      priority_queue_.set(element, new_strength2(element, strength, delta, code_->k() + colliding_compensation));
+
+      std::unordered_map<int, int> affected_neighbors;
+      for (int i : std::views::iota(0, code_->k())) {
+        auto [index, sign] = code_->hash(i, element);
+        std::vector<int>& pos_neighbors = (sign > 0) ? neighbors_[index] : neighbors2_[index];
+        std::vector<int>& neg_neighbors = (sign < 0) ? neighbors_[index] : neighbors2_[index];
+        for (int neighbor : pos_neighbors) {
+          if (neighbor == element) continue;
+          auto neighbor_iter = affected_neighbors.find(neighbor);
+          affected_neighbors[neighbor] = (neighbor_iter != affected_neighbors.end()) ? neighbor_iter->second + 1 : 1;
+        }
+        for (int neighbor : neg_neighbors) {
+          if (neighbor == element) continue;
+          auto neighbor_iter = affected_neighbors.find(neighbor);
+          affected_neighbors[neighbor] = (neighbor_iter != affected_neighbors.end()) ? neighbor_iter->second - 1 : -1;
+        }
+      }
+      for (auto [neighbor, neighbor_cnt] : affected_neighbors) {
+        ArrType neighbor_strength = new_strength2(neighbor, priority_queue_[neighbor], delta, neighbor_cnt);
+        ArrType neighbor_delta = strength_to_delta(neighbor, neighbor_strength);
+        add_to_priority_queue(neighbor, neighbor_strength, neighbor_delta);
+      }
+      if (config_->verbose) {
+        std::cout << std::format("thrash: {}, power: {}, element: {}, cur_element_value: {}, delta: {}\n",
+          thrash, strength, element, cur_element_value, delta);
+        code_->show_result();
+      }
     }
 
     unresolved_elements_.clear();
     unresolved_ids_.clear();
     if (collision_resolving_ && finger_hash_ != nullptr && resolving_hash_ != nullptr) {
-      for (auto key : new_elements_) {
+      for (auto key : new_elements) {
         if (std::abs(result_.at(key)) > 1e-6) {
           int finger1 = (*finger_hash_)(key);
           if (fingerprints_.contains(finger1)) {
@@ -221,10 +358,10 @@ public:
 
   void add_to_priority_queue(int element, ArrType strength, ArrType delta) {
     // if fingerprint mechanism is active, then this element must not collide with any known fingerprint
-    // this is set to avoid the case in which one party adds an element, and another party subtracts it.
     bool fingerprint_condition = (finger_hash_ == nullptr) || !fingerprints_.contains((*finger_hash_)(element));
+    bool to_condition = (config_->to < 0) || (std::abs(strength) >= config_->to);
     bool delta_condition = (std::abs(delta) > 1e-6);
-    if ((collision_resolving_ || fingerprint_condition) && delta_condition)
+    if ((collision_resolving_ || fingerprint_condition) && to_condition && delta_condition)
       priority_queue_.push(element, strength);
     else
       priority_queue_.set(element, strength);
@@ -269,69 +406,19 @@ private:
 
   ArrType new_strength2(int element, ArrType strength, ArrType delta, int k) const {
     bool is_l2 = config_->pursuit_choice == PursuitChoice::L2;
-    ArrType new_str = is_l2 ? strength + delta * k : code_->sense_l1(element);
+    ArrType new_str = is_l2 ? strength - delta * k : code_->sense_l1(element);
     assert(!is_l2 || new_str == code_->sense(element));
     // the bookkeeping of strengths should always be correct
     return new_str;
   }
 
-  void notify_neighbors(int exclude_element, int counter_idx, ArrType strength_change) {
-    for (int neighbor : neighbors_[counter_idx]) {
-      if (neighbor == exclude_element) continue; // exclude_element has been separately considered
-      auto neighbor_iter = affected_neighbors_.find(neighbor);
-      affected_neighbors_[neighbor] =
-        (neighbor_iter != affected_neighbors_.end()) ? neighbor_iter->second + strength_change : strength_change;
-    }
-    for (int neighbor : neighbors2_[counter_idx]) {
-      if (neighbor == exclude_element) continue;
-      auto neighbor_iter = affected_neighbors_.find(neighbor);
-      affected_neighbors_[neighbor] =
-        (neighbor_iter != affected_neighbors_.end()) ? neighbor_iter->second - strength_change : -strength_change;
-    }
-  }
-
-  void update_neighbor_strengths() {
-    for (auto [neighbor, strength_change] : affected_neighbors_) {
-      ArrType neighbor_strength = new_strength2(neighbor, priority_queue_[neighbor], strength_change, 1);
-      ArrType neighbor_delta = strength_to_delta(neighbor, neighbor_strength);
-      add_to_priority_queue(neighbor, neighbor_strength, neighbor_delta);
-    }
-    affected_neighbors_.clear();
-  }
-
-  // in case of quantization error, recenter all counters to within the range [lb, ub)
-  void recenter_code() {
-    affected_neighbors_.clear();
-    ArrType max_delta = std::ranges::max(code_->code(), {}, 
-        std::bind(&DoroCodeT::deviation, code_, std::placeholders::_1)); // calls member function
-    max_delta = code_->deviation(max_delta);
-    std::cout << "max delta: " << max_delta << std::endl;
-    if (max_delta <= 1) return;
-    for (auto [i, cur_value] : code_->code() | std::views::enumerate) {
-      if (code_->deviation(cur_value) > 0)
-      //  std::cout << "deviation: " << code_->deviation(cur_value) << std::endl;
-      if (code_->deviation(cur_value) == max_delta) {
-        ArrType new_value = code_->recenter(cur_value);
-        ArrType delta = new_value - cur_value;
-        code_->code()[i] = new_value;
-        ++code_->num_recenters();
-        notify_neighbors(-1, i, delta);  
-      }
-    }
-    update_neighbor_strengths();
-  }
-
   DoroCodeT* code_;
-  int max_recenter_rounds_;
   ONIAK::WYHash* finger_hash_, * resolving_hash_;
   TwoDimVector neighbors_, neighbors2_;
   std::unordered_map<int, ArrType> result_;
   std::unordered_set<int> fingerprints_;
   std::unordered_set<int> colliding1_, colliding2_;
-  std::unordered_set<int> new_elements_;
   std::unordered_map<int, int> thrashing_;
-  // a buffer that stores all affected neighbors in case of code counter updates.
-  std::unordered_map<int, ArrType> affected_neighbors_;   // <id, delta>
   std::unordered_multimap<int, int> my_fingerprints_;
   UpdatePQ priority_queue_;
   const DecodeConfig* config_;

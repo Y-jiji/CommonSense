@@ -1,0 +1,11 @@
+{
+  "script": [
+    "cat",
+    "JSON"
+  ],
+  "root path": "/media/mydrive/CDMA",
+  "max process": 1,
+  "a": ["ITER_ALL", 1, 2, 3],
+  "b": 2,
+  "c": ["EVAL", "${a} ** ${b}"]
+}
