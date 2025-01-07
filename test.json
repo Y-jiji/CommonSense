@@ -1,0 +1,130 @@
+{
+    "A intersect B remaining": [
+        868,
+        917,
+        919,
+        127,
+        134,
+        134,
+        134
+    ],
+    "A minus B remaining": [
+        1000,
+        904,
+        904,
+        599,
+        599,
+        599,
+        599
+    ],
+    "A minus B size": 1000,
+    "A size": 101000,
+    "B minus A remaining": [
+        100,
+        100,
+        92,
+        92,
+        25,
+        25,
+        25
+    ],
+    "B size": 120000,
+    "bch capacity": 116,
+    "bch order": 13,
+    "comm costs": [
+        454909.0,
+        439729.0,
+        45428.0,
+        42815.0,
+        85347.0,
+        33199.0,
+        31793.0,
+        31793.0
+    ],
+    "communication rounds": 7,
+    "counting": true,
+    "d": 250000,
+    "df": 9,
+    "diff": 110000,
+    "doro costs": [
+        454909.0,
+        45137.0,
+        42673.0,
+        42625.0,
+        32721.0,
+        31793.0,
+        31793.0,
+        31793.0
+    ],
+    "finger costs": [
+        0,
+        394592.0,
+        2755.0,
+        190.0,
+        20919.0,
+        1406.0,
+        0.0,
+        0.0
+    ],
+    "k": 3,
+    "lb": 0,
+    "max comm rounds": 10,
+    "max num peels": 550000,
+    "max process": 30,
+    "max rounds": 1000,
+    "num peels": [
+        21211,
+        21356,
+        21366,
+        25641,
+        25717,
+        25717,
+        25717
+    ],
+    "number of corrected errors": 1285,
+    "number of failed blocks": 0,
+    "number of recenters": 813,
+    "resolving costs": [
+        0,
+        0.0,
+        0.0,
+        0.0,
+        31707.0,
+        0.0,
+        0.0,
+        0.0
+    ],
+    "resolving round": 2,
+    "result filename": "/media/mydrive/CDMA/test.json",
+    "root path": "/media/mydrive/CDMA",
+    "round entering resolving": 3,
+    "script": [
+        "ROOT/build/bin/two_party",
+        "JSON"
+    ],
+    "seed": 2403760669,
+    "success": false,
+    "ta": 100,
+    "theoretical entropy costs": [
+        196484.1364371407,
+        40751.06120937298,
+        38735.02616165695,
+        38686.704031513764,
+        18169.037136736366,
+        16826.94726108707,
+        16826.94726108707,
+        16826.94726108707
+    ],
+    "time": [
+        0.169168948,
+        0.279339071,
+        0.404128497,
+        0.533331062,
+        0.677079635,
+        0.792328143,
+        0.928273365
+    ],
+    "total communication cost": 1165013.0,
+    "ub": 3,
+    "universe": 2000000
+}

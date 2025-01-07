@@ -10,13 +10,14 @@
 
 #include <iostream>
 
-#include "rans-tricks/rans_byte.h"
+#include "rans-fix/rans_byte.h"
 
 namespace Doro {
 // set to avoid errors in rANS for non-enough precision.
 static const uint32_t max_symbol_freq = 1u << 15;
 static const uint32_t prob_bits = 15;
 static const uint32_t prob_scale = 1 << prob_bits;
+static const uint32_t kEndPadding = 2;  // last two bytes are never used
 
 // Only the RansWrapper can edit RansCode.
 // Otherwise RansCode is read-only.
@@ -136,7 +137,9 @@ public:
 
   RansCode encode(const std::vector<T>& data) const {
     RansState rans;
-    RansEncInit(&rans);
+    if (!default_mode_) {
+      RansEncInit(&rans);
+    }
     size_t result_size = default_mode_ ? sizeof(T) : data.size() * sizeof(T) + 2;
     RansCode result(result_size);
     if (default_mode_) {
@@ -180,7 +183,9 @@ public:
   std::vector<T> decode(const RansCode& code) const {
     RansState rans;
     const uint8_t* ptr = code.data();
-    RansDecInit(&rans, const_cast<uint8_t**>(&ptr));
+    if (!default_mode_) {
+      RansDecInit(&rans, &ptr);
+    }
     std::vector<T> result;
     auto extra_index = code.extra_index_.end();
     const uint8_t* extra_ptr = code.extra_.data() + code.extra_.size();
@@ -201,7 +206,7 @@ public:
       else {
         uint32_t value = RansDecGet(&rans, new_scale_bits_);
         sym = inverse_cum_.at(value);
-        RansDecAdvanceSymbol(&rans, const_cast<uint8_t**>(&ptr), &dsyms_.at(sym), new_scale_bits_);
+        RansDecAdvanceSymbol(&rans, &ptr, &dsyms_.at(sym), new_scale_bits_);
 
 #ifdef ONIAK_DEBUG
         if (!code.rans_states_.empty()) {

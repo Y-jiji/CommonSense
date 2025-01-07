@@ -40,6 +40,7 @@ using CounterType = int16_t;
 // The following constants are used for parameter tuning
 constexpr double diff_coding_error_min = 1e-9;
 constexpr double diff_coding_error_max = 0.1;
+constexpr double diff_coding_error_final = 1e-6;
 constexpr double bch_block_error_rate = 0.01;
 
 bool get_sizes(const std::unordered_map<int, CounterType>& result1,
@@ -127,60 +128,106 @@ Skellam moment_fit_skellam(const DoroCode<T>& code) {
 }
 
 struct doro_parameter {
-  int lb, ub, bch_order, bch_capacity;
-  double midpoint;
+  int lb, ub;
+  vector<bch_parameter> bch;
 };
+
+struct bch_parameter {
+  int order, capacity, midpoint, interval;
+  double rate;
+};
+
+void print_doro_parameter(const doro_parameter& para) {
+  cout << "lb: " << para.lb << ", ub: " << para.ub << endl;
+  for (auto [i, bch]: views::enumerate(para.bch)) {
+    println("BCH layer {}: order: {}, capacity: {}, midpoint: {}, rate: {}, interval: {}", 
+            i, bch.order, bch.capacity, bch.midpoint, bch.rate, bch.interval);
+  }
+}
 
 double cost_estimation(doro_parameter para) {
   double uniform_cost = log2(para.ub - para.lb);
-  double bch_code_length = pow(2.0, para.bch_order) - 1;
-  double bch_check_length = para.bch_order * para.bch_capacity;
-  // Cannot find a valid bch code to correct this number of errors
-  if (bch_code_length <= bch_check_length) return 100000.0;
-  double bch_rate = bch_check_length / (bch_code_length - bch_check_length);
-  return uniform_cost + bch_rate;
+  for (auto& bch : para.bch) {
+    uniform_cost += bch.rate;
+  }
+  return uniform_cost;
 }
 
 // determine the lb, ub, bch order and bch capacity automatically
-doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_minus_A_size) {
+doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_minus_A_size, 
+                                    double bch_cap=bch_block_error_rate, 
+                                    double diff_coding_error=diff_coding_error_final) {
   double mu1 = static_cast<double>(A_minus_B_size) * k / static_cast<double>(d);
   double mu2 = static_cast<double>(B_minus_A_size) * k / static_cast<double>(d);
   Skellam skellam = { mu2, mu1 };
   auto [cdf, k2, k1] = skellam.cdf_map();
-  int mean = mu2 - mu1;
+  int mean = std::floor(mu2 - mu1);
 
   doro_parameter best_para;
-  double best_cost = 100000.0;
+  double best_cost = numeric_limits<float>::infinity();
 
-  for (int ub = mean + 1; ub < k1; ++ub) {
+  for (int ub = mean + 2; ub < k1; ++ub) {
     for (int lb = mean; lb > k2; --lb) {
       double diff_err = 1.0 - cdf.at(ub) + cdf.at(lb);
       if (diff_err < diff_coding_error_min || diff_err > diff_coding_error_max) continue;
+      doro_parameter cur_para = { lb, ub };
+      int interval = best_para.ub - best_para.lb;
 
-      for (int bch_order = 5; bch_order <= 15; ++bch_order) {
-        int bch_code_length = (1 << bch_order) - 1;
-        int bch_capacity = ceil(quantile(binomial(bch_code_length, diff_err), 1.0 - bch_block_error_rate));
-        double estimated_cost = cost_estimation({ lb, ub, bch_order, bch_capacity });
-        if (estimated_cost < best_cost) {
-          best_cost = estimated_cost;
-          best_para = { lb, ub, bch_order, bch_capacity };
+      while(diff_err > diff_coding_error) {
+        int midpoint; // default midpoint
+        double prob_in_range = 0.0;
+        // We assume the original difference is between [mid - interval, mid + interval).
+        for (int mid = best_para.lb; mid <= best_para.ub; ++mid) {
+          if (cdf.contains(mid + interval) && cdf.contains(mid - interval)) {
+            double cur_prob_in_range = cdf.at(mid + interval) - cdf.at(mid - interval);
+            if (cur_prob_in_range > prob_in_range) {
+              prob_in_range = cur_prob_in_range;
+              midpoint = mid;
+            }
+          }
         }
+        assert(prob_in_range > 1.0 - diff_err);
+
+        double cur_layer_rate = numeric_limits<float>::infinity();
+        bch_parameter cur_layer;
+        for (int bch_order = 5; bch_order <= 15; ++bch_order) {
+          int bch_code_length = (1 << bch_order) - 1;
+          int bch_capacity = ceil(quantile(binomial(bch_code_length, diff_err), 1.0 - bch_block_error_rate));
+          double bch_check_length = bch_order * bch_capacity;
+          // Cannot find a valid bch code to correct this number of errors
+          if (bch_code_length <= bch_check_length) continue;
+          double bch_rate = bch_check_length / (bch_code_length - bch_check_length);
+
+          if (bch_rate < cur_layer_rate) {
+            cur_layer_rate = bch_rate;
+            cur_layer = {bch_order, bch_capacity, midpoint, interval, bch_rate};
+          }
+        }
+        assert(isfinite(bch_rate));
+        cur_para.bch.push_back(cur_layer);
+        interval *= 2;
+        diff_err = 1.0 - prob_in_range;
+      }
+      double estimated_cost = cost_estimation(cur_para);
+      if (estimated_cost < best_cost) {
+        best_cost = estimated_cost;
+        best_para = cur_para;
       }
     }
   }
-  int interval = best_para.ub - best_para.lb;
-  best_para.midpoint = best_para.ub; // default midpoint
-  double high_cdf2 = (*cdf.try_emplace(best_para.lb - 1 + interval, 0).first).second;
-  for (int mid = best_para.lb - 1; mid < best_para.ub; ++mid) {
-    double low_cdf = (*cdf.try_emplace(mid + 1 - interval, 0).first).second;
-    double high_cdf = (*cdf.try_emplace(mid + interval + 1, 0).first).second;
-    if (low_cdf >= high_cdf) {
-      best_para.midpoint = mid + ((low_cdf < high_cdf2 + 1e-6) ? 0 : 0.5);
-      break;
-    }
-    high_cdf2 = high_cdf;
+  
+  if (!isfinite(best_cost)) {
+      cerr << "Error: Could not determine the best parameters." << endl;
+      exit(1);
   }
   return best_para;
+}
+
+// since the value could be negative, taking an integer division does not work.
+// first cast to int, then to unsigned, as suggested by standard.
+uint8_t get_bch_data(int val, float interval) {
+  int bch_data = floor(val / interval);
+  return bch_data;
 }
 
 int main(int argc, char* argv[]) {
@@ -224,25 +271,17 @@ int main(int argc, char* argv[]) {
   if (config.contains("s2")) s2 = config.at("s2");
   int ta = 5;
   if (config.contains("ta")) ta = config.at("ta");
-  int lb = -1;
-  if (config.contains("lb")) lb = config.at("lb");
-  int ub = -1;
-  if (config.contains("ub")) ub = config.at("ub");
   std::string save_path = config.at("result filename");
   int max_comm_rounds = 20;
   if (config.contains("max comm rounds")) max_comm_rounds = config.at("max comm rounds");
   int resolving_round = -1;  // at this round, always start resolving
   if (config.contains("resolving round")) resolving_round = config.at("resolving round");
   bool counting = config.at("counting");
-  bool bch_encoding = true;
-  if (config.contains("bch encoding")) bch_encoding = config.at("bch encoding");
-  int bch_order = -1, bch_capacity = -1;
-  if (bch_encoding && config.contains("bch order") && config.contains("bch capacity")) {
-    bch_order = config.at("bch order");
-    bch_capacity = config.at("bch capacity");
-  }
-  double bch_midpoint = (lb + ub - 1) / 2.0;
-  if (config.contains("bch midpoint")) bch_midpoint = config.at("bch midpoint");
+  double bch_cap = bch_block_error_rate;
+  if (config.contains("bch block error rate")) bch_cap = config.at("bch block error rate");
+  double diff_coding_error = diff_coding_error_final;
+  if (config.contains("diff coding error")) diff_coding_error = config.at("diff coding error");
+
   // Skip this experiment if result already exists, used for batch experimenting.
   bool skip_if_exists = false;
   double failure_rate = 1e-4;
@@ -272,22 +311,11 @@ int main(int argc, char* argv[]) {
   unordered_set<int> setA_minus_B(rand_vec.begin(), rand_vec.begin() + A_minus_B_size);
   unordered_set<int> setB_minus_A(rand_vec.begin() + A_size, rand_vec.end());
 
-  if (bch_order < 0 || bch_capacity < 0) {
-    while (true) {
-      auto auto_parameter = doro_parameter_tuning(d, k, A_minus_B_size, B_minus_A_size);
-      tie(lb, ub, bch_order, bch_capacity, bch_midpoint) =
-        tie(auto_parameter.lb, auto_parameter.ub, auto_parameter.bch_order, auto_parameter.bch_capacity, auto_parameter.midpoint);
-      cout << "Automatically selected the following parameters: lb = " << lb << ", ub = " << ub << ", bch_order = " << bch_order
-        << ", bch_capacity = " << bch_capacity << ", midpoint = " << bch_midpoint << endl;
-      config["lb"] = lb;
-      config["ub"] = ub;
-      config["bch order"] = bch_order;
-      config["bch capacity"] = bch_capacity;
-      break;
-    }
-  }
+  auto auto_parameter = doro_parameter_tuning(d, k, A_minus_B_size, B_minus_A_size, bch_cap, diff_coding_error);
+  cout << "Automatically selected the following parameters: " << endl;
+  print_doro_parameter(auto_parameter);
 
-  DoroCode<CounterType> doro(d, k, counting, rng, lb, ub);
+  DoroCode<CounterType> doro(d, k, counting, rng, auto_parameter.lb, auto_parameter.ub);
   // copy to keep the same set of hash functions
   auto first_round_code = doro;
   unordered_map<int, CounterType> Bela_coef, Alis_coef;
@@ -299,56 +327,63 @@ int main(int argc, char* argv[]) {
   }
   first_round_code.encode(Alis_coef);
 
-  BCHWrapper bch(bch_order, bch_capacity);
-  vector<uint8_t> bch_data, parity_bits;
-  CounterType interval_size = first_round_code.interval();
+  vector<BCHWrapper> bch_wrappers;
+  for (const auto& bch : auto_parameter.bch) {
+    bch_wrappers.emplace_back(bch.order, bch.capacity);
+  }
+  vector<uint8_t> bch_data;
+  vector<vector<uint8_t>> parity_bits;
+  float interval_size = first_round_code.interval();
   for (auto& val : first_round_code.code()) {
-    if (bch_encoding) {
-      bch_data.push_back(val / interval_size % 2);
-    }
+    bch_data.push_back(get_bch_data(val, interval_size));
     val = first_round_code.recenter(val);
   }
-  if (bch_encoding) {
-    parity_bits = bch.encode(bch_data, /*bit-by-bit*/ true);
+  for (auto [i, bch]: views::enumerate(bch_wrappers)) {
+    // Only LSB is encoded in each iteration. So we reveal the LSB after that.
+    parity_bits.push_back(bch.encode(bch_data, /*bit-by-bit*/ true));
+    for_each(bch_data.begin(), bch_data.end(), [](uint8_t& x) { x >>= 1; });
   }
 
+  size_t total_bch_sizes = accumulate(parity_bits.begin(), parity_bits.end(), 0,
+    [](size_t sum, const auto& vec) { return sum + vec.size(); });
   // rANS encode for uniform distribution in [lb, ub)
-  auto uniform_map = uniform_pmf<CounterType>(lb, ub);
+  auto uniform_map = uniform_pmf<CounterType>(auto_parameter.lb, auto_parameter.ub);
   RansWrapper first_round_wrapper(uniform_map);
   RansCode first_round_compressed_code = first_round_wrapper.encode(first_round_code.code());
   auto first_round_decompressed_code = first_round_wrapper.decode(first_round_compressed_code);
   DEBUG_VECTOR_EQUAL(first_round_decompressed_code, first_round_code.code());
-  double first_round_cost = first_round_compressed_code.size() + parity_bits.size();
+  double first_round_cost = first_round_compressed_code.size() + total_bch_sizes;
   first_round_code.code() = std::move(first_round_decompressed_code);
 
   doro.encode(Bela_coef);
   vector<uint8_t> data_decode;
-  for (int i = 0; i < d; ++i) {
-    CounterType diff = doro.code()[i] - first_round_code.code()[i];
+  vector<CounterType> diff_vec;
+  for (auto [i, val] : views::enumerate(doro.code())) {
+    CounterType diff = val - first_round_code.code()[i];
     diff = doro.recenter(diff);
-    CounterType encoder_value = doro.code()[i] - diff; // Bela's guess of Alis' value
-    if (bch_encoding) {
-      data_decode.push_back(encoder_value / interval_size % 2);
-    }
-    doro.code()[i] = diff; // recentered difference
+    diff_vec.push_back(diff);
+    CounterType alis_val = val - diff; // Guess of original code by Alis.
+    data_decode.push_back(get_bch_data(alis_val, interval_size));
   }
-  if (bch_encoding) {
-    int num_failed_blocks = 0, num_errors_found = 0;
+  int num_failed_blocks = 0, num_errors_found = 0;
+  for (auto [i, bch] : views::enumerate(bch_wrappers)) {
+    auto bch_param = auto_parameter.bch[i];
+    auto data_decode_copy = data_decode; 
+    for_each(data_decode_copy.begin(), data_decode_copy.end(), [i](uint8_t& x) { x >>= i; });
     vector<size_t> error_pos =
-      bch.get_error_positions(data_decode, parity_bits, /*bit-by-bit*/ true, &num_failed_blocks, &num_errors_found);
+      bch.get_error_positions(data_decode_copy, parity_bits[i], /*bit-by-bit*/ true, &num_failed_blocks, &num_errors_found);
     for (size_t pos : error_pos) {
-      CounterType revision_value = 0;
-      if (doro.code()[pos] < bch_midpoint) {
-        revision_value = interval_size;
-      }
-      else if (doro.code()[pos] > bch_midpoint) {
-        revision_value = -interval_size;
-      }
-      doro.code()[pos] += revision_value;
+      CounterType& diff = diff_vec[pos];
+      diff += (diff < bch_param.midpoint) ? bch_param.interval : -bch_param.interval;
+      CounterType alis_val = doro.code()[pos] - diff;
+      data_decode[pos] = get_bch_data(alis_val, interval_size);
     }
-    config["number of failed blocks"] = num_failed_blocks;
-    config["number of corrected errors"] = num_errors_found;
   }
+  config["number of failed blocks"] = num_failed_blocks;
+  config["number of corrected errors"] = num_errors_found;
+  assert(diff_vec.size() == doro.code().size());
+  // We only look at the difference from this moment on.
+  doro.code() = std::move(diff_vec);
 
   double lambda = static_cast<double>(A_minus_B_size) * k / d;
   auto A_minus_B_map = get_pmf(lambda, d, counting);
@@ -416,6 +451,9 @@ int main(int argc, char* argv[]) {
   }
 
   while (!doro.empty() && comm_rounds < max_comm_rounds && status != Status::Finished) {
+    if(doro.size() != 990000) {
+      cout << "doro size: " << doro.size() << endl;
+    }
     actual_comm_rounds = std::max(actual_comm_rounds, comm_rounds + 1);
     // who is current decoder?
     party = (party == Party::Alis) ? Party::Bela : Party::Alis;
@@ -483,6 +521,8 @@ int main(int argc, char* argv[]) {
     if (decoder.result() == last_result || comm_rounds == resolving_round) {
       if (status == Status::CollisionAvoiding) {
         status = Status::CollisionResolving;
+        dconf_alis.pursuit_choice = PursuitChoice::L1;
+        dconf_bela.pursuit_choice = PursuitChoice::L1;
         decoder_alis.enter_resolving();
         decoder_bela.enter_resolving();
         config["round entering resolving"] = actual_comm_rounds;

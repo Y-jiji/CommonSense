@@ -4,7 +4,7 @@
 
 cmake_minimum_required(VERSION 3.16...3.27)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-include(tianji NO_POLICY_SCOPE)
+include(tianji_dedup NO_POLICY_SCOPE)
 
 # -- Your project name here
 
@@ -31,14 +31,15 @@ if(CMAKE_BUILD_TYPE MATCHES "Release")
 elseif(CMAKE_BUILD_TYPE MATCHES "Debug")
     add_compile_options(-fsanitize=address)
     add_link_options(-fsanitize=address)
-    add_compile_options(-O0 -ggdb -Werror -Wno-attributes -DDEBUG)
+    add_compile_options(-O0 -ggdb -Werror -Wno-attributes -DDEBUG -DONIAK_DEBUG)
 endif()
 
 # -- Process Main Library & Unit Tests
 
 AutoBuild(
-    LIB_DIR "lib" SHARED
-    BIN_DIR "bin"
+    LIB_DIR "lib" NONE
+		BIN_DIR "lib"
+		TARGET_SRC "bin/two_party.cpp"
 )
 
 # -- Manage Third Party Dependencies
@@ -92,7 +93,7 @@ Git(
     INCLUDE_DIR "${CMAKE_BINARY_DIR}/3rd_party_download/wangyi-fudan"
 )
 Git(
-    SITE        "git@github.gatech.edu"
+    SITE      "git@github.gatech.edu"
     USER      "jx9"
     REPO      "libONIAK"
     BRANCH    "main"
@@ -100,11 +101,11 @@ Git(
 )
 Git(
     SITE   "https://github.com"
-    USER     "loxxous"
-    REPO   "rans-tricks"
+    USER     "Jeffery-Meng"
+    REPO   "rans-fix"
     BRANCH "master"
     PIPELINE "INCLUDE" PUBLIC
-    INCLUDE_DIR "${CMAKE_BINARY_DIR}/3rd_party_download/loxxous"
+    INCLUDE_DIR "${CMAKE_BINARY_DIR}/3rd_party_download/Jeffery-Meng"
 )
 Git(
     SITE  "https://github.com"

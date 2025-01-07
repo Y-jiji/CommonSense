@@ -93,6 +93,7 @@ public:
     return decoded_data;
   }
 
+  // num_failed_blocks and num_corrected_errors are incremented.
   std::vector<size_t> get_error_positions(const std::vector<uint8_t>& data,
     const std::vector<uint8_t>& parity_bits, bool bit_by_bit=false, int* num_failed_blocks=nullptr,
     int* num_corrected_errors=nullptr) const {
@@ -101,13 +102,6 @@ public:
     std::vector<uint8_t> decoded_data = data;
     std::vector<size_t> error_pos;
     int nerrFound;
-
-    if (num_failed_blocks) {
-      *num_failed_blocks = 0;
-    }
-    if (num_corrected_errors) {
-      *num_corrected_errors = 0;
-    }
 
     if (bit_by_bit) {
       size_t number_blocks = (data.size() + message_size() - 1) / message_size();

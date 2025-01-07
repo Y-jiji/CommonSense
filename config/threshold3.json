@@ -1,0 +1,48 @@
+{
+  "script": [
+    "ROOT/build/bin/doro",
+    "JSON"
+  ],
+  "root path": "/media/mydrive/CDMA",
+  "max process": 30,
+  "seed": [
+    "ITER_RANDOM",
+    1000
+  ],
+  "universe": 2000000,
+  "A size": 1010000,
+  "B size": [
+    "ITER_ALL",
+    1000100,
+    1001000,
+    1003000,
+    1010000,
+    1030000,
+    1100000,
+    1200000
+  ],
+  "A minus B size": 10000,
+  "k": 3,
+  "df": [
+    "ITER_ALL",
+    7,8,9,10,11,12, 13, 14, 15
+  ],
+  "diff": [
+    "EVAL",
+    "${B size} - ${A size} + 2 * ${A minus B size}"
+  ],
+  "d": [
+    "EVAL",
+    "int(${diff} * ${df})"
+  ],
+  "max num peels": [
+    "EVAL",
+    "int(${diff} * 2.5)"
+  ],
+  "ta": 100,
+  "max rounds": 1000,
+  "max comm rounds": 10,
+  "counting": true,
+  "resolving round": 6,
+  "result filename": "ROOT/result/two_side_quantize/bs{B size}_d{d}_sd{seed}.json"
+}
