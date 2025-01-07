@@ -11,3 +11,4 @@ plots
 build
 debug
 data
+.cache
