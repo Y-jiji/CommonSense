@@ -19,11 +19,22 @@ public:
       throw std::runtime_error("Failed to initialize BCH codec.");
     }
   }
-  // forbid copy and move
+  // forbid copy
   BCHWrapper(const BCHWrapper&) = delete;
   BCHWrapper& operator=(const BCHWrapper&) = delete;
-  BCHWrapper(BCHWrapper&&) = delete;
-  BCHWrapper& operator=(BCHWrapper&&) = delete;
+
+  // move constructor and assignment
+  BCHWrapper(BCHWrapper&& other) {
+    bch_ = other.bch_;
+    other.bch_ = nullptr;
+  }
+  BCHWrapper& operator=(BCHWrapper&& other) {
+    if (this != &other) {
+      bch_ = other.bch_;
+      other.bch_ = nullptr;
+    }
+    return *this;
+  } 
   // Destructor to handle c-ctyle ownership
   ~BCHWrapper() { free_bch(bch_); }
 

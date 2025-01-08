@@ -98,16 +98,18 @@ bool get_sizes(const std::unordered_map<int, CounterType>& result1,
 }
 
 // automatically decide the signature lengths
-std::pair<int, int> signature_length(int A_minus_B_size, int B_minus_A_size, double failure_rate) {
-  double failure_rate_single_combination = static_cast<double>(A_minus_B_size) * static_cast<double>(B_minus_A_size)
-    / failure_rate;
-  int s_large = std::ceil(std::log2(std::max(A_minus_B_size, B_minus_A_size)));
+std::pair<int, int> signature_length(double A_minus_B_size, double B_minus_A_size, double failure_rate) {
+  double failure_rate_single_combination = A_minus_B_size * B_minus_A_size / failure_rate;
+  double large_size = std::max(A_minus_B_size, B_minus_A_size);
+  double small_size = std::min(A_minus_B_size, B_minus_A_size);
+  double total_size = A_minus_B_size + B_minus_A_size;
+  int s_large = std::ceil(std::log2(large_size));
   int s_sum;
   if (failure_rate_single_combination < 1e-9) s_sum = s_large;
   else s_sum = std::ceil(std::log2(failure_rate_single_combination));
   if (s_sum == s_large) return { s_large, 0 };
-  int x = std::floor(std::log2(s_sum - s_large));
-  return { s_large + x, s_sum - s_large - x };
+  int x = std::ceil(std::log2(s_sum * large_size * small_size / total_size));
+  return { x, s_sum - x };
 }
 
 template <typename T>
@@ -127,14 +129,14 @@ Skellam moment_fit_skellam(const DoroCode<T>& code) {
   return { mu1, mu2 };
 }
 
-struct doro_parameter {
-  int lb, ub;
-  vector<bch_parameter> bch;
-};
-
 struct bch_parameter {
   int order, capacity, midpoint, interval;
   double rate;
+};
+
+struct doro_parameter {
+  int lb, ub;
+  vector<bch_parameter> bch;
 };
 
 void print_doro_parameter(const doro_parameter& para) {
@@ -171,19 +173,22 @@ doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_min
       double diff_err = 1.0 - cdf.at(ub) + cdf.at(lb);
       if (diff_err < diff_coding_error_min || diff_err > diff_coding_error_max) continue;
       doro_parameter cur_para = { lb, ub };
-      int interval = best_para.ub - best_para.lb;
+      int interval = ub - lb;
+      int cur_lb = lb, cur_ub = ub;
 
       while(diff_err > diff_coding_error) {
         int midpoint; // default midpoint
         double prob_in_range = 0.0;
         // We assume the original difference is between [mid - interval, mid + interval).
-        for (int mid = best_para.lb; mid <= best_para.ub; ++mid) {
-          if (cdf.contains(mid + interval) && cdf.contains(mid - interval)) {
-            double cur_prob_in_range = cdf.at(mid + interval) - cdf.at(mid - interval);
-            if (cur_prob_in_range > prob_in_range) {
-              prob_in_range = cur_prob_in_range;
-              midpoint = mid;
-            }
+        for (int mid = cur_lb; mid <= cur_ub; ++mid) {
+          auto val_retriever = [mean](auto map, int key) {
+            if (map.contains(key)) return map.at(key);
+            else return (key > mean)? 1.0 : 0.0;
+          };
+          double cur_prob_in_range = val_retriever(cdf, mid + interval) - val_retriever(cdf, mid - interval);
+          if (cur_prob_in_range > prob_in_range) {
+            prob_in_range = cur_prob_in_range;
+            midpoint = mid;
           }
         }
         assert(prob_in_range > 1.0 - diff_err);
@@ -193,6 +198,7 @@ doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_min
         for (int bch_order = 5; bch_order <= 15; ++bch_order) {
           int bch_code_length = (1 << bch_order) - 1;
           int bch_capacity = ceil(quantile(binomial(bch_code_length, diff_err), 1.0 - bch_block_error_rate));
+          if (bch_capacity < 1) continue;
           double bch_check_length = bch_order * bch_capacity;
           // Cannot find a valid bch code to correct this number of errors
           if (bch_code_length <= bch_check_length) continue;
@@ -203,11 +209,15 @@ doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_min
             cur_layer = {bch_order, bch_capacity, midpoint, interval, bch_rate};
           }
         }
-        assert(isfinite(bch_rate));
+        if(!isfinite(cur_layer_rate)) break;
         cur_para.bch.push_back(cur_layer);
+
         interval *= 2;
         diff_err = 1.0 - prob_in_range;
+        cur_lb = midpoint - interval;
+        cur_ub = midpoint + interval;
       }
+      if (diff_err > diff_coding_error) continue;
       double estimated_cost = cost_estimation(cur_para);
       if (estimated_cost < best_cost) {
         best_cost = estimated_cost;
@@ -545,6 +555,8 @@ int main(int argc, char* argv[]) {
     total_comm_cost += cost.get<double>();
   }
   config["total communication cost"] = total_comm_cost;
+  config["total theoretical entropy cost"] = std::accumulate(config.at("theoretical entropy costs").begin(),
+    config.at("theoretical entropy costs").end(), 0.0, [](double sum, const json& val) { return sum + val.get<double>(); });
   config["success"] = success;
 
 

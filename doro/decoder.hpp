@@ -309,7 +309,7 @@ private:
       std::bind(&DoroCodeT::deviation, code_, std::placeholders::_1)); // calls member function
     max_delta = code_->deviation(max_delta);
     std::cout << "max delta: " << max_delta << std::endl;
-    if (max_delta <= 0) return 0;
+    if (max_delta <= 1) return 0;
     for (auto [i, cur_value] : code_->code() | std::views::enumerate) {
       if (code_->deviation(cur_value) > 0)
         //  std::cout << "deviation: " << code_->deviation(cur_value) << std::endl;
