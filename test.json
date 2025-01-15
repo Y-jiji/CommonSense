@@ -1,107 +1,115 @@
 {
     "A intersect B remaining": [
-        118,
-        203,
-        105,
-        1,
+        970,
+        1639,
+        633,
+        34,
+        0,
         0
     ],
     "A minus B remaining": [
         10000,
-        3093,
-        3093,
-        0,
+        1368,
+        1368,
+        3,
+        3,
         0
     ],
     "A minus B size": 10000,
     "A size": 1010000,
     "B minus A remaining": [
-        1315,
-        1315,
-        395,
-        395,
+        2941,
+        2941,
+        247,
+        247,
+        0,
         0
     ],
-    "B size": 1200000,
+    "B size": 1010000,
     "comm costs": [
-        2218315.0,
-        4077178.0,
-        285857.0,
-        145679.0,
-        223511.0,
-        8483.0
+        391248.0,
+        329403.0,
+        250747.0,
+        108373.0,
+        54863.0,
+        4879.0
     ],
     "communication rounds": 6,
     "counting": true,
-    "d": 800000,
-    "df": 9,
-    "diff": 110000,
+    "d": 160000,
+    "df": 8,
+    "diff": [
+        "EVAL",
+        "${B size} - ${A size} + 2 * ${A minus B size}"
+    ],
     "doro costs": [
-        2218315.0,
-        299921.0,
-        153009.0,
-        128161.0,
-        21921.0,
-        97.0
+        391248.0,
+        184881.0,
+        83329.0,
+        44129.0,
+        10657.0,
+        305.0
     ],
     "finger costs": [
         0,
-        3777257.0,
-        132848.0,
-        17518.0,
-        59128.0,
-        7486.0
+        144522.0,
+        167418.0,
+        53010.0,
+        26658.0,
+        4374.0
     ],
     "k": 5,
     "max comm rounds": 10,
-    "max num peels": 550000,
+    "max num peels": 1000000,
     "max process": 30,
     "max rounds": 1000,
     "num peels": [
-        250924,
-        257918,
-        258940,
-        262229,
-        262625
+        8531,
+        18467,
+        24541,
+        27211,
+        27496,
+        27499
     ],
-    "number of corrected errors": 7361,
-    "number of failed blocks": 1,
-    "number of recenters": 98,
+    "number of corrected errors": 1027,
+    "number of failed blocks": 0,
+    "number of recenters": 0,
     "resolving costs": [
         0,
         0.0,
         0.0,
-        0.0,
-        142462.0,
-        900.0
+        11234.0,
+        17548.0,
+        200.0
     ],
-    "resolving round": 2,
+    "resolving round": 1,
     "result filename": "/media/mydrive/CDMA/test.json",
     "root path": "/media/mydrive/CDMA",
-    "round entering resolving": 3,
+    "round entering resolving": 2,
     "script": [
-        "ROOT/build/bin/two_party",
+        "ROOT/build/bin/doro",
         "JSON"
     ],
-    "seed": 2403760669,
+    "seed": 4165465,
     "success": true,
     "ta": 100,
     "theoretical entropy costs": [
-        1620382.2389594212,
-        299063.37753155833,
-        152610.3536464311,
-        127862.0755388016,
-        18368.088088537505,
-        -0.0
+        265619.33889420686,
+        183988.0515439292,
+        82516.60508658578,
+        43932.56894660995,
+        10568.155845980698,
+        222.35173794579728
     ],
     "time": [
-        9.745730321,
-        11.925206351,
-        14.158535182,
-        16.227653241,
-        18.500163
+        1.667676967,
+        3.584521771,
+        5.192062493,
+        6.66355388,
+        7.71088644,
+        8.801893113
     ],
-    "total communication cost": 6959023.0,
-    "total theoretical entropy cost": 2218286.13376475,
+    "total communication cost": 1139513.0,
+    "total theoretical entropy cost": 586847.0720552583,
     "universe": 2000000
 }

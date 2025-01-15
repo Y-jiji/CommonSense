@@ -167,8 +167,9 @@ doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_min
 
   doro_parameter best_para;
   double best_cost = numeric_limits<float>::infinity();
+  assert(cdf.at(k1) >= 1.0 - 1e-6 && (cdf.at(k1) <= 1.0 + 1e-6));
 
-  for (int ub = mean + 2; ub < k1; ++ub) {
+  for (int ub = mean + 1; ub <= k1; ++ub) {
     for (int lb = mean; lb > k2; --lb) {
       double diff_err = 1.0 - cdf.at(ub) + cdf.at(lb);
       if (diff_err < diff_coding_error_min || diff_err > diff_coding_error_max) continue;

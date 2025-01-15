@@ -7,21 +7,24 @@
   "max process": 30,
   "seed": [
     "ITER_RANDOM",
-    10000
+    1000
   ],
   "universe": 2000000,
   "A size": 1000000,
   "B size": [
     "ITER_ALL",
-    1010000
+    1010000,
+    1020000,
+    1050000,
+    1100000,
+    1200000,
+    1500000
   ],
   "A minus B size": 0,
-  "k": 8,
+  "k": 5,
   "df": [
-    "ITER_WITH",
-    "B size", {
-      "1010000": [8.1]
-    }
+    "ITER_ALL",
+    3,4,5,6,7,8,9,10
   ],
   "d": [
     "EVAL",
@@ -36,5 +39,5 @@
   "max comm rounds": 1,
   "counting": true,
   "resolving round": -1,
-  "result filename": "ROOT/result/one_side_quantize/bs{B size}_d{d}_sd{seed}.json"
+  "result filename": "ROOT/result/one_side_quantize5/bs{B size}_d{d}_sd{seed}.json"
 }

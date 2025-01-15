@@ -64,6 +64,7 @@ public:
       cdf[k] = sum;
       sum += pmf[k];
     }
+    cdf[k1_] = sum;
     return { cdf, k2_, k1_ };
   }
 
