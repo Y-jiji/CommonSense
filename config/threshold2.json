@@ -18,11 +18,11 @@
     "${B size} - ${A size} + 2 * ${A minus B size}"
   ],
   "d": 160000,
-  "max num peels": 1000000,
+  "max num peels": 1000000000,
+  "max recenter rounds": 10,
   "ta": 100,
   "max rounds": 1000,
   "max comm rounds": 10,
   "counting": true,
-  "resolving round": 1,
   "result filename": "/media/mydrive/CDMA/test.json"
 }

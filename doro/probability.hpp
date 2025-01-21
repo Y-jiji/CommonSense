@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include "libONIAK/oniakDataStructure/ohist.h"
 #include "libONIAK/oniakMath/ostats.h"
@@ -144,8 +145,12 @@ double entropy(const std::unordered_map<T, V, H>& map) {
   return -sum;
 }
 
+inline double entropy(double p) {
+  return -p * std::log2(p) - (1 - p) * std::log2(1 - p);
+}
+
 // computes entropy of (X+Y), (X+Z)
-double doro_entropy(const std::unordered_map<int, double>& rvx, const std::unordered_map<int, double>& rvy,
+inline double doro_entropy(const std::unordered_map<int, double>& rvx, const std::unordered_map<int, double>& rvy,
   const std::unordered_map<int, double>& rvz) {
   using int_pair = std::pair<int, int>;
   std::unordered_map<int_pair, double, ONIAK::TupleHash<int, int>> pmap;
@@ -164,8 +169,65 @@ double doro_entropy(const std::unordered_map<int, double>& rvx, const std::unord
   return entropy(pmap);
 }
 
-int log2_ceil(int x) {
+inline int log2_ceil(int x) {
   return static_cast<int>(std::ceil(std::log2(x)));
+}
+
+// both input and output is double
+template <typename F>
+concept UnitaryFunction = std::is_invocable_r_v<double, F, double>;
+
+template <UnitaryFunction F>
+double convex_argmax(F f, double lb, double ub, double epsilon = 1e-6) {
+  double mid = (lb + ub) / 2;
+  double fmid = f(mid);
+  double flb = f(lb);
+  double fub = f(ub);
+
+  while (fmid < flb && ub - lb > epsilon) {
+    ub = mid;
+    mid = (lb + ub) / 2;
+    fmid = f(mid);
+  }
+
+  while (fmid < fub && ub - lb > epsilon) {
+    lb = mid;
+    mid = (lb + ub) / 2;
+    fmid = f(mid);
+  }
+
+  while (ub - lb > epsilon) {
+    double& farther = (ub - mid > mid - lb) ? ub : lb;
+    double& closer = (ub - mid > mid - lb) ? lb : ub;
+    double new_mid = (mid + farther) / 2;
+    double fnew_mid = f(new_mid);
+    if (fnew_mid > fmid) {
+      closer = mid;
+      mid = new_mid;
+      fmid = fnew_mid;
+    }
+    else {
+      farther = new_mid;
+    }
+  }
+  return mid;
+}
+
+// average load per fingerprint bucket is |A/B| * |B/A| / |C|^2, which is alpha * beta^2
+// however, the target epsilon per bucker is epsilon * beta. This cancels out one copy of beta.
+inline int finger_l_size(double alpha, double beta, double epsilon) {
+  return std::ceil(-std::log2(epsilon) + std::log2(alpha) + std::log2(beta));
+}
+
+// alpha is |A/B| / |B/A|, beta is |B/A| / |C|
+inline double loss_func(double alpha, double beta, double b, double epsilon) {
+  double first_nonzero_prob = 1 - std::exp(-beta);
+  double entropy_first = entropy(first_nonzero_prob);
+  double second_nonzero_prob = 1 - std::exp(-alpha * beta);
+  double entropy_second = entropy(second_nonzero_prob * first_nonzero_prob);
+  double recon_cost = alpha * beta * first_nonzero_prob * (finger_l_size(alpha, beta, epsilon) + log2_ceil(b / beta));
+  // std::cout << "entropy_first: " << entropy_first/beta << ", entropy_second: " << entropy_second/beta << ", recon_cost: " << recon_cost/beta << std::endl;
+  return (entropy_first + entropy_second + recon_cost) / beta;
 }
 
 }  // namespace Doro

@@ -4,7 +4,6 @@
 #include <doro/probability.hpp>
 #include <doro/rans_wrapper.hpp>
 
-#include "libONIAK/global.h"
 #include "libONIAK/oniakDataStructure/ohist.h"
 #include "libONIAK/oniakDebug/odebug.h"
 #include "libONIAK/oniakRandom/orand.h"
@@ -43,10 +42,13 @@ constexpr double diff_coding_error_max = 0.1;
 constexpr double diff_coding_error_final = 1e-6;
 constexpr double bch_block_error_rate = 0.01;
 
+// get the current decoding status and error counts.
 bool get_sizes(const std::unordered_map<int, CounterType>& result1,
-  const std::unordered_map<int, CounterType>& result2, const std::unordered_set<int>& setA_minus_B, const std::unordered_set<int>& setB_minus_A,
+  const std::unordered_map<int, CounterType>& result2,
+  const std::unordered_set<int>& setA_minus_B, const std::unordered_set<int>& setB_minus_A,
   json& config, const DoroCode<CounterType>& doro) {
-  int A_minus_B_remaining_size = setA_minus_B.size(), B_minus_A_remaining_size = setB_minus_A.size(), A_intersect_B_remaining_size = 0;
+  int A_minus_B_remaining_size = setA_minus_B.size(), B_minus_A_remaining_size = setB_minus_A.size(),
+    A_intersect_B_remaining_size = 0;
   for (auto [key, value] : result1) {
     if (value == 0) continue;
     if (setA_minus_B.contains(key)) --A_minus_B_remaining_size;
@@ -54,7 +56,7 @@ bool get_sizes(const std::unordered_map<int, CounterType>& result1,
     else {
       ++A_intersect_B_remaining_size;
 #ifdef ONIAK_DEBUG
-      std::cout << key << "A intersect B \t";
+      std::cout << key << "\t A intersect B in this\t";
       doro.print_key(key);
 #endif
     }
@@ -66,7 +68,7 @@ bool get_sizes(const std::unordered_map<int, CounterType>& result1,
     else {
       ++A_intersect_B_remaining_size;
 #ifdef ONIAK_DEBUG
-      std::cout << key << "\t A intersect B \t";
+      std::cout << key << "\t A intersect B in other\t";
       doro.print_key(key);
 #endif
     }
@@ -92,24 +94,22 @@ bool get_sizes(const std::unordered_map<int, CounterType>& result1,
       std::cout << value << " B minus A \t";
       doro.print_key(value);
     }
-}
+  }
 #endif
   return A_minus_B_remaining_size == 0 && B_minus_A_remaining_size == 0 && A_intersect_B_remaining_size == 0;
 }
 
 // automatically decide the signature lengths
 std::pair<int, int> signature_length(double A_minus_B_size, double B_minus_A_size, double failure_rate) {
-  double failure_rate_single_combination = A_minus_B_size * B_minus_A_size / failure_rate;
-  double large_size = std::max(A_minus_B_size, B_minus_A_size);
-  double small_size = std::min(A_minus_B_size, B_minus_A_size);
-  double total_size = A_minus_B_size + B_minus_A_size;
-  int s_large = std::ceil(std::log2(large_size));
-  int s_sum;
-  if (failure_rate_single_combination < 1e-9) s_sum = s_large;
-  else s_sum = std::ceil(std::log2(failure_rate_single_combination));
-  if (s_sum == s_large) return { s_large, 0 };
-  int x = std::ceil(std::log2(s_sum * large_size * small_size / total_size));
-  return { x, s_sum - x };
+  B_minus_A_size *= 1.25; // account for erroneous elements in the intersection
+  double alpha = A_minus_B_size / B_minus_A_size;
+  auto lam = [alpha, failure_rate, B_minus_A_size](double beta) {
+    return -loss_func(alpha, 1.0 / beta, B_minus_A_size, failure_rate);
+    };
+  double p = convex_argmax(lam, /*lb*/ 2.0, /*ub*/ 50.0, /*epsilon*/ 0.01);
+  int finger_s = std::ceil(B_minus_A_size * p);
+  int finger_l = finger_l_size(alpha, 1.0 / p, failure_rate);
+  return { finger_s, finger_l };
 }
 
 template <typename T>
@@ -141,9 +141,9 @@ struct doro_parameter {
 
 void print_doro_parameter(const doro_parameter& para) {
   cout << "lb: " << para.lb << ", ub: " << para.ub << endl;
-  for (auto [i, bch]: views::enumerate(para.bch)) {
-    println("BCH layer {}: order: {}, capacity: {}, midpoint: {}, rate: {}, interval: {}", 
-            i, bch.order, bch.capacity, bch.midpoint, bch.rate, bch.interval);
+  for (auto [i, bch] : views::enumerate(para.bch)) {
+    println("BCH layer {}: order: {}, capacity: {}, midpoint: {}, rate: {}, interval: {}",
+      i, bch.order, bch.capacity, bch.midpoint, bch.rate, bch.interval);
   }
 }
 
@@ -156,9 +156,9 @@ double cost_estimation(doro_parameter para) {
 }
 
 // determine the lb, ub, bch order and bch capacity automatically
-doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_minus_A_size, 
-                                    double bch_cap=bch_block_error_rate, 
-                                    double diff_coding_error=diff_coding_error_final) {
+doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_minus_A_size,
+  double bch_cap = bch_block_error_rate,
+  double diff_coding_error = diff_coding_error_final) {
   double mu1 = static_cast<double>(A_minus_B_size) * k / static_cast<double>(d);
   double mu2 = static_cast<double>(B_minus_A_size) * k / static_cast<double>(d);
   Skellam skellam = { mu2, mu1 };
@@ -177,15 +177,15 @@ doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_min
       int interval = ub - lb;
       int cur_lb = lb, cur_ub = ub;
 
-      while(diff_err > diff_coding_error) {
+      while (diff_err > diff_coding_error) {
         int midpoint; // default midpoint
         double prob_in_range = 0.0;
         // We assume the original difference is between [mid - interval, mid + interval).
         for (int mid = cur_lb; mid <= cur_ub; ++mid) {
           auto val_retriever = [mean](auto map, int key) {
             if (map.contains(key)) return map.at(key);
-            else return (key > mean)? 1.0 : 0.0;
-          };
+            else return (key > mean) ? 1.0 : 0.0;
+            };
           double cur_prob_in_range = val_retriever(cdf, mid + interval) - val_retriever(cdf, mid - interval);
           if (cur_prob_in_range > prob_in_range) {
             prob_in_range = cur_prob_in_range;
@@ -207,10 +207,10 @@ doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_min
 
           if (bch_rate < cur_layer_rate) {
             cur_layer_rate = bch_rate;
-            cur_layer = {bch_order, bch_capacity, midpoint, interval, bch_rate};
+            cur_layer = { bch_order, bch_capacity, midpoint, interval, bch_rate };
           }
         }
-        if(!isfinite(cur_layer_rate)) break;
+        if (!isfinite(cur_layer_rate)) break;
         cur_para.bch.push_back(cur_layer);
 
         interval *= 2;
@@ -226,10 +226,10 @@ doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_min
       }
     }
   }
-  
+
   if (!isfinite(best_cost)) {
-      cerr << "Error: Could not determine the best parameters." << endl;
-      exit(1);
+    cerr << "Error: Could not determine the best parameters." << endl;
+    exit(1);
   }
   return best_para;
 }
@@ -276,16 +276,14 @@ int main(int argc, char* argv[]) {
 
   int k = config.at("k");
   int d = config.at("d");
-  int s = -1;
-  if (config.contains("s")) s = config.at("s");   // signature size
-  int s2 = -1;               // resolving signature size
-  if (config.contains("s2")) s2 = config.at("s2");
   int ta = 5;
   if (config.contains("ta")) ta = config.at("ta");
   std::string save_path = config.at("result filename");
   int max_comm_rounds = 20;
   if (config.contains("max comm rounds")) max_comm_rounds = config.at("max comm rounds");
-  int resolving_round = -1;  // at this round, always start resolving
+  // at this round, always start resolving
+  // by default, resolving starts after two complete back-and-forths
+  int resolving_round = 3;
   if (config.contains("resolving round")) resolving_round = config.at("resolving round");
   bool counting = config.at("counting");
   double bch_cap = bch_block_error_rate;
@@ -297,6 +295,7 @@ int main(int argc, char* argv[]) {
   bool skip_if_exists = false;
   double failure_rate = 1e-4;
   if (config.contains("failure rate")) failure_rate = config.at("failure rate");
+  failure_rate /= B_minus_A_size; // from now on, we 
   int max_recenter_rounds = 100;
   if (config.contains("max recenter rounds")) max_recenter_rounds = config.at("max recenter rounds");
   int max_num_peels = -1;
@@ -349,7 +348,7 @@ int main(int argc, char* argv[]) {
     bch_data.push_back(get_bch_data(val, interval_size));
     val = first_round_code.recenter(val);
   }
-  for (auto [i, bch]: views::enumerate(bch_wrappers)) {
+  for (auto [i, bch] : views::enumerate(bch_wrappers)) {
     // Only LSB is encoded in each iteration. So we reveal the LSB after that.
     parity_bits.push_back(bch.encode(bch_data, /*bit-by-bit*/ true));
     for_each(bch_data.begin(), bch_data.end(), [](uint8_t& x) { x >>= 1; });
@@ -379,7 +378,7 @@ int main(int argc, char* argv[]) {
   int num_failed_blocks = 0, num_errors_found = 0;
   for (auto [i, bch] : views::enumerate(bch_wrappers)) {
     auto bch_param = auto_parameter.bch[i];
-    auto data_decode_copy = data_decode; 
+    auto data_decode_copy = data_decode;
     for_each(data_decode_copy.begin(), data_decode_copy.end(), [i](uint8_t& x) { x >>= i; });
     vector<size_t> error_pos =
       bch.get_error_positions(data_decode_copy, parity_bits[i], /*bit-by-bit*/ true, &num_failed_blocks, &num_errors_found);
@@ -423,24 +422,12 @@ int main(int argc, char* argv[]) {
   config["number of recenters"] = 0;
 
   Party party = Party::Alis;
-  if (s < 0 || s2 < 0) {
-    auto [s_prime, s2_prime] = signature_length(A_minus_B_size, B_minus_A_size, failure_rate);
-    s = s_prime;
-    s2 = s2_prime;
-    println("Use the following signature lengths: s = {}, s2 = {}", s, s2);
-  }
-  if (s > 31) {
-    println("Warning: signature size is too large. Reset to 31.");
-    s = 31;
-  }
-  unsigned int mask = (1 << s) - 1;
-  WYHash finger_hash(mask, /*mode*/ 0, /*seed*/ rng());
-  if (s2 > 31) {
-    println("Warning: resolving signature size is too large. Reset to 31.");
-    s2 = 31;
-  }
-  assert(s >= 0 && s2 >= 0);
-  unsigned int mask2 = (1 << s2) - 1;
+  auto [finger_s, finger_l] = signature_length(A_minus_B_size, B_minus_A_size, failure_rate);
+  double finger_beta = static_cast<double>(B_minus_A_size) / finger_s;
+  println("Use the following signature lengths: s = {}, l = {}, beta = {}.", finger_s, finger_l, finger_beta);
+  assert(finger_s > 0 && finger_l >= 0 and finger_l < 32);
+  WYHash finger_hash(/*mask*/ 0, /*mode*/ finger_s, /*seed*/ rng());
+  unsigned int mask2 = (1 << finger_l) - 1;
   WYHash resolving_hash(mask2, /*mode*/ 0, /*seed*/ rng());
 
   Status status = Status::CollisionAvoiding;
@@ -450,8 +437,6 @@ int main(int argc, char* argv[]) {
     dconf_bela(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, max_num_peels, PursuitChoice::L2);
   StopWatch sw;
   unordered_map<int, CounterType> result_alis, result_bela;
-  // elements whose fingerprints have been transmitted
-  unordered_set<int> elements_alis, elements_bela;
   bool no_advance = false;
   int comm_rounds = 0, actual_comm_rounds = 0;
   bool success = false;
@@ -462,7 +447,7 @@ int main(int argc, char* argv[]) {
   }
 
   while (!doro.empty() && comm_rounds < max_comm_rounds && status != Status::Finished) {
-    if(doro.size() != 990000) {
+    if (doro.size() != 990000) {
       cout << "doro size: " << doro.size() << endl;
     }
     actual_comm_rounds = std::max(actual_comm_rounds, comm_rounds + 1);
@@ -474,7 +459,6 @@ int main(int argc, char* argv[]) {
     unordered_set<int>& candidates = (party == Party::Alis) ? setA : setB;
     unordered_map<int, CounterType>* result;
     unordered_map<int, CounterType>& last_result = (party == Party::Alis) ? result_alis : result_bela;
-    unordered_set<int>& elements = (party == Party::Alis) ? elements_alis : elements_bela;
     int num_peels = decoder.decode(&doro, candidates, &dconf, result);
 
     if (doro.empty() && decoder.unresolved_elements().empty()) {
@@ -500,17 +484,18 @@ int main(int argc, char* argv[]) {
     DEBUG_VECTOR_EQUAL(decompressed_code, doro.code());
     doro.code() = std::move(decompressed_code);  // just use these codes.
 
-    int new_extra_size = 0;  // number of new elements decoded in this round
-    for (auto [key, value] : *result) {
-      if (value == 0) continue;
-      if (!elements.contains(key)) {
-        ++new_extra_size;
-        elements.insert(key);
-      }
-    }
+    auto fingerprints_delta = decoder.update_fingerprints();
+    double new_extra_size = std::accumulate(fingerprints_delta.begin(), fingerprints_delta.end(), 0.0);
+    float actual_load = new_extra_size / finger_s;
+    unordered_map<int8_t, double> finger_pmf = { {0, 1.0 - actual_load}, {1, actual_load} };
+    RansWrapper<int8_t, double> finger_rans(finger_pmf);
+    RansCode compressed_fingers = finger_rans.encode(fingerprints_delta);
+    auto decompressed_fingers = finger_rans.decode(compressed_fingers);
+    other_decoder.load_fingerprints(decompressed_fingers);
+    DEBUG_VECTOR_EQUAL(decompressed_fingers, fingerprints_delta);
 
     int unresolved_size = decoder.unresolved_elements().size();
-    double resolving_cost = unresolved_size * (s + s2);
+    double resolving_cost = unresolved_size * (log2_ceil(finger_s) + finger_l);
     if (!decoder.unresolved_elements().empty()) {
       int num_unresolved = decoder.unresolved_elements().size();
       actual_comm_rounds = std::max(actual_comm_rounds, comm_rounds + 2); // need an additional resolving round
@@ -520,12 +505,13 @@ int main(int argc, char* argv[]) {
         actual_comm_rounds = std::max(actual_comm_rounds, comm_rounds + 3);   // resolving round needs feedback
       }
     }
-    double finger_cost = new_extra_size * s;
+    double finger_cost = compressed_fingers.size() + 32; // 4 bytes to transmit actual load.
     config["finger costs"].push_back(finger_cost);
     config["resolving costs"].push_back(resolving_cost);
     double comm_cost = doro_cost + finger_cost + resolving_cost;
     config["comm costs"].push_back(comm_cost);
-    success = success || get_sizes(decoder.result(), other_decoder.result(), setA_minus_B, setB_minus_A, config, doro);
+    success = success || get_sizes(decoder.result(), other_decoder.result(),
+      setA_minus_B, setB_minus_A, config, doro);
     config["time"].push_back(sw.peek());
     config["num peels"].push_back(doro.num_peels());
 
@@ -543,14 +529,12 @@ int main(int argc, char* argv[]) {
     }
     else no_advance = false;
 
-    decoder.update_fingerprints(other_decoder);
     last_result = decoder.result();
-
     ++comm_rounds;
   }
+
   config["number of recenters"] = doro.num_recenters();
   config["communication rounds"] = actual_comm_rounds;
-
   double total_comm_cost = 0;
   for (auto cost : config.at("comm costs")) {
     total_comm_cost += cost.get<double>();
@@ -559,7 +543,6 @@ int main(int argc, char* argv[]) {
   config["total theoretical entropy cost"] = std::accumulate(config.at("theoretical entropy costs").begin(),
     config.at("theoretical entropy costs").end(), 0.0, [](double sum, const json& val) { return sum + val.get<double>(); });
   config["success"] = success;
-
 
   fout << std::setw(4) << config << endl;  // indent 4
   return 0;

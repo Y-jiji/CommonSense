@@ -4,6 +4,7 @@
 #include "doro.hpp"
 #include "libONIAK/oniakDataStructure/oupq.h"
 #include "libONIAK/oniakHash/ohash.h"
+#include "libONIAK/oniakMath/orange.h"
 
 #include <algorithm>
 #include <cassert>
@@ -132,7 +133,7 @@ public:
     if (collision_resolving_ && finger_hash_ != nullptr && resolving_hash_ != nullptr) {
       for (auto key : new_elements_) {
         if (std::abs(result_.at(key)) > 1e-6) {
-          int finger1 = (*finger_hash_)(key);
+          int finger1 = finger_hash_->hash_in_range(key);
           if (fingerprints_.contains(finger1)) {
             int finger2 = (*resolving_hash_)(key);
             unresolved_elements_.push_back({ finger1, finger2 });
@@ -144,11 +145,32 @@ public:
     return code_->num_peels();
   }
 
-  void update_fingerprints(DoroDecoder& other) const {
-    assert(finger_hash_ != nullptr && *other.finger_hash_ == *finger_hash_);
+  // fingerprints are add-only.
+  // In other words, if an element is added and then removed, its fingerprint will not be removed.
+  // This is because it costs more to transmit deletions.
+  std::vector<int8_t> update_fingerprints() {
+    assert(finger_hash_ != nullptr && resolving_hash_ != nullptr);
+    // i.e., finger_s in two_party
+    size_t capacity = finger_hash_->mod();
+    std::vector<int8_t> fingerprints(capacity, 0);
     for (auto [key, value] : result_) {
-      if (std::abs(value) > 1e-6)
-        other.fingerprints_.insert((*finger_hash_)(key));
+      uint32_t finger = finger_hash_->hash_in_range(key);
+      if (std::abs(value) < 1e-6)  continue;
+      if (!my_fingerprints_.contains(finger)) {
+        fingerprints[finger] = 1;
+      }
+      my_fingerprints_.insert({finger, key});
+    }
+    return fingerprints;
+  }
+
+  void load_fingerprints(const std::vector<int8_t> fingerprints) {
+    assert(finger_hash_ != nullptr);
+    assert(fingerprints.size() == finger_hash_->mod());
+    for (size_t i : ONIAK::nonzero_indices(fingerprints)) {
+      if (!fingerprints_.contains(i)) {
+        fingerprints_.insert(i);
+      }
     }
   }
 
@@ -160,17 +182,10 @@ public:
   int resolve_collision(DoroDecoder& other, std::unordered_set<int>& setA, std::unordered_set<int>& setB) {
     assert(finger_hash_ != nullptr && *other.finger_hash_ == *finger_hash_);
     assert(resolving_hash_ != nullptr && *other.resolving_hash_ == *resolving_hash_);
-    my_fingerprints_.clear();
-    for (auto [key, value] : result_) {
-      if (std::abs(value) > 1e-6) {
-        int finger1 = (*finger_hash_)(key);
-        my_fingerprints_.insert({ finger1, key });
-      }
-    }
     int num_collisions = 0;
 
-    for (size_t i = 0; i < other.unresolved_elements_.size(); ++i) {
-      auto [finger1, finger2] = other.unresolved_elements_.at(i);
+    for (auto [i, finger_i] : std::views::enumerate(other.unresolved_elements_)) {
+      auto [finger1, finger2] = finger_i;
       auto [finger_iter, iter_end] = my_fingerprints_.equal_range(finger1);
       for (; finger_iter != iter_end; ++finger_iter) {
         int element = finger_iter->second;
@@ -225,7 +240,7 @@ public:
   void add_to_priority_queue(int element, ArrType strength, ArrType delta) {
     // if fingerprint mechanism is active, then this element must not collide with any known fingerprint
     // this is set to avoid the case in which one party adds an element, and another party subtracts it.
-    bool fingerprint_condition = (finger_hash_ == nullptr) || !fingerprints_.contains((*finger_hash_)(element));
+    bool fingerprint_condition = (finger_hash_ == nullptr) || !fingerprints_.contains(finger_hash_->hash_in_range(element));
     bool delta_condition = (std::abs(delta) > 1e-6);
     if ((collision_resolving_ || fingerprint_condition) && delta_condition)
       priority_queue_.push(element, strength);

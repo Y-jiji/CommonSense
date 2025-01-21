@@ -1,0 +1,1 @@
+g++ ../bin/test.cpp -o test -I .. -I $ONIAKLIB/.. -std=c++23

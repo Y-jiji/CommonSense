@@ -8,7 +8,7 @@ include(tianji_dedup NO_POLICY_SCOPE)
 
 # -- Your project name here
 
-project(doro LANGUAGES CXX C)
+project(doro2 LANGUAGES CXX C)
 
 # -- Configure project compiler options
 
@@ -92,13 +92,13 @@ Git(
     PIPELINE "INCLUDE" PUBLIC
     INCLUDE_DIR "${CMAKE_BINARY_DIR}/3rd_party_download/wangyi-fudan"
 )
-Git(
-    SITE      "git@github.gatech.edu"
-    USER      "jx9"
-    REPO      "libONIAK"
-    BRANCH    "main"
-    PIPELINE "CMAKE INSTALL" PUBLIC HEADER_ONLY
-)
+# Git(
+#     SITE      "git@github.gatech.edu"
+#     USER      "jx9"
+#     REPO      "libONIAK"
+#     BRANCH    "main"
+#     PIPELINE "CMAKE INSTALL" PUBLIC HEADER_ONLY
+# )
 Git(
     SITE   "https://github.com"
     USER     "Jeffery-Meng"
@@ -122,3 +122,6 @@ Git(
     PIPELINE "INCLUDE" PUBLIC
     INCLUDE_DIR "${CMAKE_BINARY_DIR}/3rd_party_download/Ten0"
 )
+
+find_package(libONIAK REQUIRED)
+target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC /media/mydrive/libONIAK)
