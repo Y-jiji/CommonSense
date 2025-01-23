@@ -216,6 +216,7 @@ double convex_argmax(F f, double lb, double ub, double epsilon = 1e-6) {
 // average load per fingerprint bucket is |A/B| * |B/A| / |C|^2, which is alpha * beta^2
 // however, the target epsilon per bucker is epsilon * beta. This cancels out one copy of beta.
 inline int finger_l_size(double alpha, double beta, double epsilon) {
+  if (alpha < 1e-30) return 0;
   return std::ceil(-std::log2(epsilon) + std::log2(alpha) + std::log2(beta));
 }
 

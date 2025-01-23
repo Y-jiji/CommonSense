@@ -1,120 +1,65 @@
 {
     "A intersect B remaining": [
-        970,
-        1677,
-        986,
-        383,
-        31,
         0
     ],
     "A minus B remaining": [
-        10000,
-        1407,
-        1407,
-        388,
-        388,
         0
     ],
-    "A minus B size": 10000,
-    "A size": 1010000,
+    "A minus B size": 0,
+    "A size": 1000000,
     "B minus A remaining": [
-        2941,
-        2941,
-        457,
-        457,
-        0,
         0
     ],
     "B size": 1010000,
     "comm costs": [
-        391248.0,
-        236226.0,
-        141170.0,
-        70898.0,
-        40674.0,
-        28745.0,
-        17474.0
+        185823.0
     ],
-    "communication rounds": 7,
+    "communication rounds": 1,
     "counting": true,
-    "d": 160000,
+    "d": 84000,
     "df": 8,
     "diff": [
         "EVAL",
         "${B size} - ${A size} + 2 * ${A minus B size}"
     ],
     "doro costs": [
-        391248.0,
-        184881.0,
-        83873.0,
-        50497.0,
-        31089.0,
-        15473.0,
-        97.0
+        185823.0
     ],
     "finger costs": [
-        0,
-        51345.0,
-        57297.0,
-        20401.0,
-        9585.0,
-        5441.0,
-        4177.0
+        0
     ],
-    "k": 5,
+    "k": 7,
     "max comm rounds": 10,
     "max num peels": 1000000000,
     "max process": 30,
     "max recenter rounds": 10,
     "max rounds": 1000,
     "num peels": [
-        8531,
-        18502,
-        22157,
-        23897,
-        25008,
-        25429
+        12614
     ],
-    "number of corrected errors": 1027,
+    "number of corrected errors": 893,
     "number of failed blocks": 0,
-    "number of recenters": 0,
+    "number of recenters": 5,
     "resolving costs": [
-        0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        7831.0,
-        13200.0
+        0
     ],
+    "resolving round": -1,
     "result filename": "/media/mydrive/CDMA/test.json",
     "root path": "/media/mydrive/CDMA",
-    "round entering resolving": 4,
     "script": [
         "ROOT/build/bin/doro",
         "JSON"
     ],
-    "seed": 4165465,
+    "seed": 4191464797,
     "success": true,
     "ta": 100,
     "theoretical entropy costs": [
-        265619.33889420686,
-        183988.0515439292,
-        83040.66197171043,
-        50168.29881360404,
-        30909.747408238647,
-        15354.319558698606,
-        -0.0
+        144971.88315502714
     ],
     "time": [
-        4.06833915,
-        9.086523728,
-        12.524653673,
-        15.945660281999999,
-        19.163087933,
-        22.394007545
+        6.788233591
     ],
-    "total communication cost": 926435.0,
-    "total theoretical entropy cost": 629080.4181903877,
-    "universe": 2000000
+    "total communication cost": 185823.0,
+    "total theoretical entropy cost": 144971.88315502714,
+    "universe": 5000000
 }

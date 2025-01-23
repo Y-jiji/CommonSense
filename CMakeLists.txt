@@ -8,7 +8,7 @@ include(tianji_dedup NO_POLICY_SCOPE)
 
 # -- Your project name here
 
-project(doro2 LANGUAGES CXX C)
+project(doro LANGUAGES CXX C)
 
 # -- Configure project compiler options
 
@@ -123,5 +123,4 @@ Git(
     INCLUDE_DIR "${CMAKE_BINARY_DIR}/3rd_party_download/Ten0"
 )
 
-find_package(libONIAK REQUIRED)
 target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC /media/mydrive/libONIAK)

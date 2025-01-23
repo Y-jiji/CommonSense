@@ -199,7 +199,7 @@ doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_min
         for (int bch_order = 5; bch_order <= 15; ++bch_order) {
           int bch_code_length = (1 << bch_order) - 1;
           int bch_capacity = ceil(quantile(binomial(bch_code_length, diff_err), 1.0 - bch_block_error_rate));
-          if (bch_capacity < 1) continue;
+          if (bch_capacity < 2) bch_capacity = 2;
           double bch_check_length = bch_order * bch_capacity;
           // Cannot find a valid bch code to correct this number of errors
           if (bch_code_length <= bch_check_length) continue;
@@ -453,7 +453,7 @@ int main(int argc, char* argv[]) {
     actual_comm_rounds = std::max(actual_comm_rounds, comm_rounds + 1);
     // who is current decoder?
     party = (party == Party::Alis) ? Party::Bela : Party::Alis;
-    const DecodeConfig& dconf = (party == Party::Alis) ? dconf_alis : dconf_bela;
+    DecodeConfig& dconf = (party == Party::Alis) ? dconf_alis : dconf_bela;
     DoroDecoder<CounterType>& decoder = (party == Party::Alis) ? decoder_alis : decoder_bela,
       & other_decoder = (party == Party::Alis) ? decoder_bela : decoder_alis;
     unordered_set<int>& candidates = (party == Party::Alis) ? setA : setB;
@@ -518,8 +518,6 @@ int main(int argc, char* argv[]) {
     if (decoder.result() == last_result || comm_rounds == resolving_round) {
       if (status == Status::CollisionAvoiding) {
         status = Status::CollisionResolving;
-        dconf_alis.pursuit_choice = PursuitChoice::L1;
-        dconf_bela.pursuit_choice = PursuitChoice::L1;
         decoder_alis.enter_resolving();
         decoder_bela.enter_resolving();
         config["round entering resolving"] = actual_comm_rounds;

@@ -88,7 +88,7 @@ public:
   int decode(
     DoroCodeT* code,
     const std::unordered_set<int>& setA, /*possible candidates of code*/
-    const DecodeConfig* config,
+    DecodeConfig* config,
     std::unordered_map<int, ArrType>*& result) {
     code_ = code;
     config_ = config;
@@ -101,31 +101,21 @@ public:
     colliding2_.clear();
     bool is_l2 = config_->pursuit_choice == PursuitChoice::L2; // else is l1
 
-    for (int element : setA) {
-      auto all_hashes = code_->hash_all(element);
-      for (auto [index, sign] : all_hashes) {
-        if (sign > 0)
-          neighbors_[index].push_back(element);
-        else neighbors2_[index].push_back(element);
-      }
-      int colliding = code_->is_colliding(element);
-      if (colliding == 1)
-        colliding1_.insert(element);
-      else if (colliding == 2)
-        colliding2_.insert(element);
-      ArrType strength = is_l2 ? code_->sense(element) : code_->sense_l1(element);
-      ArrType delta = strength_to_delta(element, strength);
-      add_to_priority_queue(element, strength, delta);
-    }
-
+    scan_setA(setA, is_l2);
     // peel the counters until nothing can be done.
     new_elements_.clear();
     for (int rnd = 0; rnd < max_recenter_rounds_; ++rnd) {
       peel_until_empty();
       int delta = 0;
-      if (collision_resolving_) delta = recenter_code();
+      if (collision_resolving_) {
+        delta = recenter_code();
+      }
       if (config->max_num_peels > 0 && code_->num_peels() >= config->max_num_peels) break;
       if (delta == 0 && priority_queue_.empty()) break;
+      if (config_->pursuit_choice == PursuitChoice::L2) {
+        config_->pursuit_choice = PursuitChoice::L1;
+        scan_setA(setA, false);
+      }
     }
 
     unresolved_elements_.clear();
@@ -159,7 +149,7 @@ public:
       if (!my_fingerprints_.contains(finger)) {
         fingerprints[finger] = 1;
       }
-      my_fingerprints_.insert({finger, key});
+      my_fingerprints_.insert({ finger, key });
     }
     return fingerprints;
   }
@@ -323,11 +313,9 @@ private:
     ArrType max_delta = std::ranges::max(code_->code(), {},
       std::bind(&DoroCodeT::deviation, code_, std::placeholders::_1)); // calls member function
     max_delta = code_->deviation(max_delta);
-    std::cout << "max delta: " << max_delta << std::endl;
     if (max_delta <= 1) return 0;
     for (auto [i, cur_value] : code_->code() | std::views::enumerate) {
       if (code_->deviation(cur_value) > 0)
-        //  std::cout << "deviation: " << code_->deviation(cur_value) << std::endl;
         if (code_->deviation(cur_value) == max_delta) {
           ArrType new_value = code_->recenter(cur_value);
           ArrType delta = new_value - cur_value;
@@ -338,6 +326,25 @@ private:
     }
     update_neighbor_strengths();
     return max_delta;
+  }
+
+  void scan_setA(const std::unordered_set<int>& setA, bool is_l2) {
+  for (int element : setA) {
+      auto all_hashes = code_->hash_all(element);
+      for (auto [index, sign] : all_hashes) {
+        if (sign > 0)
+          neighbors_[index].push_back(element);
+        else neighbors2_[index].push_back(element);
+      }
+      int colliding = code_->is_colliding(element);
+      if (colliding == 1)
+        colliding1_.insert(element);
+      else if (colliding == 2)
+        colliding2_.insert(element);
+      ArrType strength = is_l2 ? code_->sense(element) : code_->sense_l1(element);
+      ArrType delta = strength_to_delta(element, strength);
+      add_to_priority_queue(element, strength, delta);
+    }
   }
 
   DoroCodeT* code_;
@@ -353,7 +360,7 @@ private:
   std::unordered_map<int, ArrType> affected_neighbors_;   // <id, delta>
   std::unordered_multimap<int, int> my_fingerprints_;
   UpdatePQ priority_queue_;
-  const DecodeConfig* config_;
+  DecodeConfig* config_;
   bool collision_resolving_;
   std::vector<std::pair<int, int>> unresolved_elements_;
   std::vector<int> unresolved_ids_;
