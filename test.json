@@ -6,24 +6,24 @@
         0
     ],
     "A minus B size": 0,
-    "A size": 1000000,
+    "A size": 100000,
     "B minus A remaining": [
         0
     ],
-    "B size": 1010000,
+    "B size": 101000,
     "comm costs": [
-        185823.0
+        18385.0
     ],
     "communication rounds": 1,
     "counting": true,
-    "d": 84000,
+    "d": 8000,
     "df": 8,
     "diff": [
         "EVAL",
         "${B size} - ${A size} + 2 * ${A minus B size}"
     ],
     "doro costs": [
-        185823.0
+        18385.0
     ],
     "finger costs": [
         0
@@ -35,11 +35,11 @@
     "max recenter rounds": 10,
     "max rounds": 1000,
     "num peels": [
-        12614
+        1236
     ],
-    "number of corrected errors": 893,
+    "number of corrected errors": 108,
     "number of failed blocks": 0,
-    "number of recenters": 5,
+    "number of recenters": 0,
     "resolving costs": [
         0
     ],
@@ -54,12 +54,12 @@
     "success": true,
     "ta": 100,
     "theoretical entropy costs": [
-        144971.88315502714
+        14124.334873259259
     ],
     "time": [
-        6.788233591
+        8.024502857
     ],
-    "total communication cost": 185823.0,
-    "total theoretical entropy cost": 144971.88315502714,
+    "total communication cost": 18385.0,
+    "total theoretical entropy cost": 14124.334873259259,
     "universe": 5000000
 }

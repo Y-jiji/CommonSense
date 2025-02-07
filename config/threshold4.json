@@ -7,7 +7,7 @@
   "max process": 30,
   "seed": [
     "ITER_RANDOM",
-    10000
+    7971
   ],
   "universe": 5000000,
   "A size": 1000000,

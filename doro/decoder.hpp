@@ -63,11 +63,6 @@ public:
       ArrType cur_element_value = (cur_iter != result_.end()) ? cur_iter->second : 0;
       result_[element] = cur_element_value + delta;
       priority_queue_.pop();
-      // int colliding_compensation = 0;  // not needed in new rejection sampling hashing
-      // if (colliding1_.contains(element))
-      //   colliding_compensation = 2;
-      // else if (colliding2_.contains(element))
-      //   colliding_compensation = -2;+ colliding_compensation
       priority_queue_.set(element, new_strength2(element, strength, -delta, code_->k()));
 
       affected_neighbors_.clear();
@@ -97,8 +92,6 @@ public:
     neighbors_.assign(code_->size(), {});
     neighbors2_.assign(code_->size(), {});
     priority_queue_.clear();
-    colliding1_.clear();
-    colliding2_.clear();
     bool is_l2 = config_->pursuit_choice == PursuitChoice::L2; // else is l1
 
     scan_setA(setA, is_l2);
@@ -336,11 +329,6 @@ private:
           neighbors_[index].push_back(element);
         else neighbors2_[index].push_back(element);
       }
-      int colliding = code_->is_colliding(element);
-      if (colliding == 1)
-        colliding1_.insert(element);
-      else if (colliding == 2)
-        colliding2_.insert(element);
       ArrType strength = is_l2 ? code_->sense(element) : code_->sense_l1(element);
       ArrType delta = strength_to_delta(element, strength);
       add_to_priority_queue(element, strength, delta);
@@ -353,7 +341,6 @@ private:
   TwoDimVector neighbors_, neighbors2_;
   std::unordered_map<int, ArrType> result_;
   std::unordered_set<int> fingerprints_;
-  std::unordered_set<int> colliding1_, colliding2_;
   std::unordered_set<int> new_elements_;
   std::unordered_map<int, int> thrashing_;
   // a buffer that stores all affected neighbors in case of code counter updates.

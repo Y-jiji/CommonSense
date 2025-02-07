@@ -63,7 +63,7 @@ public:
   }
 
   // senses the signal of an element by inner product
-  // performance bottleneck
+  // was performance bottleneck
   ArrType sense(int element) const {
     ArrType signal = 0;
     auto all_hashes = hash_all(element);
@@ -120,27 +120,6 @@ public:
 
   ArrType mae() const {
     return std::accumulate(values_.begin(), values_.end(), 0, [](ArrType sum, PairType pair) { return sum + std::abs(pair.second); });
-  }
-
-  // if any two hashes do not collide, return 0
-  // if there are two hashes colliding under the same sign, return 1
-  // if colliding under opposite signs, return 2
-  int is_colliding(int element) const {
-    std::unordered_map<int, int> hash_to_sign;
-    auto all_hashes = hash_all(element);
-    for (auto [index, sign] : all_hashes) {
-      auto iter = hash_to_sign.find(index);
-      if (iter == hash_to_sign.end()) {
-        hash_to_sign[index] = sign;
-      }
-      else if (iter->second != sign) {
-        return 2;
-      }
-      else {
-        return 1;
-      }
-    }
-    return 0;
   }
 
   void reset() {
@@ -215,5 +194,7 @@ private:
 };
 
 } // namespace Doro
+
+void foo();
 
 #endif

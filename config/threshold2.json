@@ -7,9 +7,9 @@
   "max process": 30,
   "seed": 4191464797,
   "universe": 5000000,
-  "A size": 1000000,
+  "A size": 100000,
   "B size": 
-    1010000,
+    101000,
   "A minus B size": 0,
   "k": 7,
   "df": 8,
@@ -17,7 +17,7 @@
     "EVAL",
     "${B size} - ${A size} + 2 * ${A minus B size}"
   ],
-  "d": 84000,
+  "d": 8000,
   "max num peels": 1000000000,
   "max recenter rounds": 10,
   "ta": 100,
