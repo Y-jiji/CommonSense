@@ -100,8 +100,8 @@ Git(
 #     PIPELINE "CMAKE INSTALL" PUBLIC HEADER_ONLY
 # )
 Git(
-    SITE   "https://github.com"
-    USER     "Jeffery-Meng"
+    SITE   "git@github.com"
+    USER    "Jeffery-Meng"
     REPO   "rans-fix"
     BRANCH "master"
     PIPELINE "INCLUDE" PUBLIC
@@ -123,4 +123,5 @@ Git(
     INCLUDE_DIR "${CMAKE_BINARY_DIR}/3rd_party_download/Ten0"
 )
 
-target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC /media/mydrive/libONIAK)
+message(STATUS "ONIAKLIB Path: $ENV{ONIAKLIB}")
+target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC $ENV{ONIAKLIB})

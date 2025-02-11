@@ -25,5 +25,5 @@
   "max comm rounds": 10,
   "counting": true,
   "resolving round": -1,
-  "result filename": "/media/mydrive/CDMA/test.json"
+  "result filename": "test.json"
 }

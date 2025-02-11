@@ -166,7 +166,7 @@ doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_min
   int mean = std::floor(mu2 - mu1);
 
   doro_parameter best_para;
-  double best_cost = numeric_limits<float>::infinity();
+  double best_cost = std::numeric_limits<float>::infinity();
   assert(cdf.at(k1) >= 1.0 - 1e-6 && (cdf.at(k1) <= 1.0 + 1e-6));
 
   for (int ub = mean + 1; ub <= k1; ++ub) {
@@ -194,7 +194,7 @@ doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_min
         }
         assert(prob_in_range > 1.0 - diff_err);
 
-        double cur_layer_rate = numeric_limits<float>::infinity();
+        double cur_layer_rate = std::numeric_limits<float>::infinity();
         bch_parameter cur_layer;
         for (int bch_order = 5; bch_order <= 15; ++bch_order) {
           int bch_code_length = (1 << bch_order) - 1;

@@ -3,8 +3,8 @@
     "ROOT/build/bin/doro",
     "JSON"
   ],
-  "root path": "/media/mydrive/CDMA",
-  "max process": 30,
+  "root path": "/media/gtnetuser/Dell/CDMA",
+  "max process": 12,
   "seed": [
     "ITER_RANDOM",
     10000
@@ -32,7 +32,7 @@
       "1010000": [8.5],
       "1030000": [8],
       "1100000": [5.5],
-      "1200000": [3, 3.5, 4]
+      "1300000": [3, 3.5, 4]
     }
   ],
   "diff": [
@@ -51,5 +51,5 @@
   "max rounds": 1000,
   "max comm rounds": 10,
   "counting": true,
-  "result filename": "ROOT/result/two_side_quantize2/bs{B size}_d{d}_sd{seed}.json"
+  "result filename": "ROOT/result/two_side_quantize/bs{B size}_d{d}_sd{seed}.json"
 }
