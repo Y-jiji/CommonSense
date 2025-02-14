@@ -49,16 +49,17 @@ bool get_sizes(const std::unordered_map<int, CounterType>& result1,
   json& config, const DoroCode<CounterType>& doro) {
   int A_minus_B_remaining_size = setA_minus_B.size(), B_minus_A_remaining_size = setB_minus_A.size(),
     A_intersect_B_remaining_size = 0;
+  bool debug_flag = config.contains("debug") && config.at("debug");
   for (auto [key, value] : result1) {
     if (value == 0) continue;
     if (setA_minus_B.contains(key)) --A_minus_B_remaining_size;
     else if (setB_minus_A.contains(key)) --B_minus_A_remaining_size;
     else {
       ++A_intersect_B_remaining_size;
-#ifdef ONIAK_DEBUG
-      std::cout << key << "\t A intersect B in this\t";
-      doro.print_key(key);
-#endif
+      if (debug_flag) {
+        std::cout << key << "\t A intersect B in this\t";
+        doro.print_key(key);
+      }
     }
   }
   for (auto [key, value] : result2) {
@@ -67,10 +68,10 @@ bool get_sizes(const std::unordered_map<int, CounterType>& result1,
     else if (setB_minus_A.contains(key)) --B_minus_A_remaining_size;
     else {
       ++A_intersect_B_remaining_size;
-#ifdef ONIAK_DEBUG
-      std::cout << key << "\t A intersect B in other\t";
-      doro.print_key(key);
-#endif
+      if (debug_flag) {
+        std::cout << key << "\t A intersect B in other\t";
+        doro.print_key(key);
+      }
     }
   }
   config["A minus B remaining"].push_back(A_minus_B_remaining_size);
@@ -80,22 +81,22 @@ bool get_sizes(const std::unordered_map<int, CounterType>& result1,
   std::cout << "B minus A remaining: " << B_minus_A_remaining_size << std::endl;
   std::cout << "A intersect B remaining: " << A_intersect_B_remaining_size << std::endl;
 
-#ifdef ONIAK_DEBUG
-  for (auto value : setA_minus_B) {
-    if ((!result1.contains(value) || result1.at(value) == 0)
-      && (!result2.contains(value) || result2.at(value) == 0)) {
-      std::cout << value << " A minus B \t";
-      doro.print_key(value);
+  if (debug_flag) {
+    for (auto value : setA_minus_B) {
+      if ((!result1.contains(value) || result1.at(value) == 0)
+        && (!result2.contains(value) || result2.at(value) == 0)) {
+        std::cout << value << " A minus B \t";
+        doro.print_key(value);
+      }
+    }
+    for (auto value : setB_minus_A) {
+      if ((!result1.contains(value) || result1.at(value) == 0)
+        && (!result2.contains(value) || result2.at(value) == 0)) {
+        std::cout << value << " B minus A \t";
+        doro.print_key(value);
+      }
     }
   }
-  for (auto value : setB_minus_A) {
-    if ((!result1.contains(value) || result1.at(value) == 0)
-      && (!result2.contains(value) || result2.at(value) == 0)) {
-      std::cout << value << " B minus A \t";
-      doro.print_key(value);
-    }
-  }
-#endif
   return A_minus_B_remaining_size == 0 && B_minus_A_remaining_size == 0 && A_intersect_B_remaining_size == 0;
 }
 
@@ -293,7 +294,7 @@ int main(int argc, char* argv[]) {
 
   // Skip this experiment if result already exists, used for batch experimenting.
   bool skip_if_exists = false;
-  double failure_rate = 1e-4;
+  double failure_rate = 1e-9;
   if (config.contains("failure rate")) failure_rate = config.at("failure rate");
   failure_rate /= B_minus_A_size; // from now on, we 
   int max_recenter_rounds = 100;
@@ -366,6 +367,10 @@ int main(int argc, char* argv[]) {
   first_round_code.code() = std::move(first_round_decompressed_code);
 
   doro.encode(Bela_coef);
+  for (auto& item : setA) {
+    if (doro.values().contains(item)) doro.values()[item] -= 1;
+    else doro.values()[item] = -1;
+  }
   vector<uint8_t> data_decode;
   vector<CounterType> diff_vec;
   for (auto [i, val] : views::enumerate(doro.code())) {
@@ -431,12 +436,11 @@ int main(int argc, char* argv[]) {
   WYHash resolving_hash(mask2, /*mode*/ 0, /*seed*/ rng());
 
   Status status = Status::CollisionAvoiding;
-  DoroDecoder<CounterType> decoder_alis(max_recenter_rounds, &finger_hash, &resolving_hash),
-    decoder_bela(max_recenter_rounds, &finger_hash, &resolving_hash);
   DecodeConfig dconf_alis(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ -1, /*ub*/ 0, max_num_peels, PursuitChoice::L2),
     dconf_bela(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, max_num_peels, PursuitChoice::L2);
+  DoroDecoder<CounterType> decoder_alis(doro, setA, dconf_alis, max_recenter_rounds, &finger_hash, &resolving_hash),
+    decoder_bela(doro, setB, dconf_bela, max_recenter_rounds, &finger_hash, &resolving_hash);
   StopWatch sw;
-  unordered_map<int, CounterType> result_alis, result_bela;
   bool no_advance = false;
   int comm_rounds = 0, actual_comm_rounds = 0;
   bool success = false;
@@ -447,9 +451,6 @@ int main(int argc, char* argv[]) {
   }
 
   while (!doro.empty() && comm_rounds < max_comm_rounds && status != Status::Finished) {
-    if (doro.size() != 990000) {
-      cout << "doro size: " << doro.size() << endl;
-    }
     actual_comm_rounds = std::max(actual_comm_rounds, comm_rounds + 1);
     // who is current decoder?
     party = (party == Party::Alis) ? Party::Bela : Party::Alis;
@@ -457,9 +458,7 @@ int main(int argc, char* argv[]) {
     DoroDecoder<CounterType>& decoder = (party == Party::Alis) ? decoder_alis : decoder_bela,
       & other_decoder = (party == Party::Alis) ? decoder_bela : decoder_alis;
     unordered_set<int>& candidates = (party == Party::Alis) ? setA : setB;
-    unordered_map<int, CounterType>* result;
-    unordered_map<int, CounterType>& last_result = (party == Party::Alis) ? result_alis : result_bela;
-    int num_peels = decoder.decode(&doro, candidates, &dconf, result);
+    int num_peels = decoder.decode();
 
     if (doro.empty() && decoder.unresolved_elements().empty()) {
       config["time"].push_back(sw.peek());
@@ -499,7 +498,7 @@ int main(int argc, char* argv[]) {
     if (!decoder.unresolved_elements().empty()) {
       int num_unresolved = decoder.unresolved_elements().size();
       actual_comm_rounds = std::max(actual_comm_rounds, comm_rounds + 2); // need an additional resolving round
-      int number_collisions = other_decoder.resolve_collision(decoder, setA, setB);
+      int number_collisions = other_decoder.resolve_collision(decoder);
       if (number_collisions > 0) {
         resolving_cost += num_unresolved;
         actual_comm_rounds = std::max(actual_comm_rounds, comm_rounds + 3);   // resolving round needs feedback
@@ -515,7 +514,7 @@ int main(int argc, char* argv[]) {
     config["time"].push_back(sw.peek());
     config["num peels"].push_back(doro.num_peels());
 
-    if (decoder.result() == last_result || comm_rounds == resolving_round) {
+    if (!decoder.has_new_elements() || comm_rounds == resolving_round) {
       if (status == Status::CollisionAvoiding) {
         status = Status::CollisionResolving;
         decoder_alis.enter_resolving();
@@ -523,11 +522,10 @@ int main(int argc, char* argv[]) {
         config["round entering resolving"] = actual_comm_rounds;
       }
       else if (!no_advance) no_advance = true;
-      else if (decoder.result() == last_result) status = Status::Finished;
+      else if (!decoder.has_new_elements()) status = Status::Finished;
     }
     else no_advance = false;
 
-    last_result = decoder.result();
     ++comm_rounds;
   }
 

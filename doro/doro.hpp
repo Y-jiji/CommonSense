@@ -153,6 +153,8 @@ public:
     std::cout << "L1 Norm of indices: " << mae() << std::endl;
   }
 
+  SparseVector& values() { return values_; }
+
   // // deprecated because it is slow.
   // std::pair<IndexType, int> hash(int i, IndexType x) const {
   //   return hash_all(x)[i];

@@ -1,5 +1,4 @@
-#ifndef __DORO_DECODER_HPP__
-#define __DORO_DECODER_HPP__
+#pragma once
 
 #include "doro.hpp"
 #include "libONIAK/oniakDataStructure/oupq.h"
@@ -37,15 +36,23 @@ template <typename ArrType = int32_t, ONIAK::UpdatePQBackend backend = ONIAK::Up
 class DoroDecoder {
 public:
   using DoroCodeT = DoroCode<ArrType>;
-  using TwoDimVector = std::vector<std::vector<int>>;
-  using UpdatePQ = ONIAK::UpdatePQAdapter<int, ArrType, backend>::type;
+  using IndexType = typename DoroCodeT::IndexType;
+  using TwoDimVector = std::vector<std::vector<IndexType>>;
+  using UpdatePQ = ONIAK::UpdatePQAdapter<IndexType, ArrType, backend>::type;
 
-  DoroDecoder(int max_recenter_rounds = 10, ONIAK::WYHash* finger_hash = nullptr, ONIAK::WYHash* resolving_hash = nullptr) :
+  DoroDecoder(DoroCodeT& code, const std::unordered_set<IndexType>& setA, DecodeConfig& config, int max_recenter_rounds = 10,
+    ONIAK::WYHash* finger_hash = nullptr, ONIAK::WYHash* resolving_hash = nullptr) :
+    code_(&code), setA_(&setA), k_is_five_(code.k() == 5), valid_neighbors_(false),
     max_recenter_rounds_(max_recenter_rounds),
-    finger_hash_(finger_hash), resolving_hash_(resolving_hash), priority_queue_(
+    finger_hash_(finger_hash), resolving_hash_(resolving_hash),
+    neighbors_(code.size()), neighbors2_(code.size()),
+    result_(), fingerprints_(), my_fingerprints_(), thrashing_(), new_elements_(),
+    pairs_5in3_(), affected_neighbors_(),
+    priority_queue_(
       // function from sensed strength to priority
       [](ArrType a) {return std::abs(a);}
-    ), collision_resolving_(false) {
+    ), config_(&config), collision_resolving_(false),
+    unresolved_elements_(), unresolved_ids_() {
   }
 
   void peel_until_empty() {
@@ -62,15 +69,13 @@ public:
       auto cur_iter = result_.find(element);
       ArrType cur_element_value = (cur_iter != result_.end()) ? cur_iter->second : 0;
       result_[element] = cur_element_value + delta;
-      priority_queue_.pop();
-      priority_queue_.set(element, new_strength2(element, strength, -delta, code_->k()));
 
       affected_neighbors_.clear();
       auto all_hashes = code_->hash_all(element);
       for (auto [index, sign] : all_hashes) {
-        notify_neighbors(element, index, -sign * delta);  // minus because the counter is reduced by delta
+        notify_neighbors(index, -sign * delta);  // minus because the counter is reduced by delta
       }
-      update_neighbor_strengths();
+      update_neighbor_strengths(element);
 
       if (config_->verbose) {
         std::cout << std::format("thrash: {}, power: {}, element: {}, cur_element_value: {}, delta: {}\n",
@@ -80,35 +85,29 @@ public:
     }
   }
 
-  int decode(
-    DoroCodeT* code,
-    const std::unordered_set<int>& setA, /*possible candidates of code*/
-    DecodeConfig* config,
-    std::unordered_map<int, ArrType>*& result) {
-    code_ = code;
-    config_ = config;
-    thrashing_.clear();
-    result = &result_;
-    neighbors_.assign(code_->size(), {});
-    neighbors2_.assign(code_->size(), {});
+  int decode() {
     priority_queue_.clear();
     bool is_l2 = config_->pursuit_choice == PursuitChoice::L2; // else is l1
 
-    scan_setA(setA, is_l2);
+    scan_setA(is_l2);
     // peel the counters until nothing can be done.
     new_elements_.clear();
     for (int rnd = 0; rnd < max_recenter_rounds_; ++rnd) {
       peel_until_empty();
-      int delta = 0;
+
+      ArrType delta = 0;
       if (collision_resolving_) {
         delta = recenter_code();
+        if (config_->pursuit_choice == PursuitChoice::L2) {
+          config_->pursuit_choice = PursuitChoice::L1;
+          scan_setA(false);
+        }
       }
-      if (config->max_num_peels > 0 && code_->num_peels() >= config->max_num_peels) break;
+      if (config_->max_num_peels > 0 && code_->num_peels() >= config_->max_num_peels) break;
       if (delta == 0 && priority_queue_.empty()) break;
-      if (config_->pursuit_choice == PursuitChoice::L2) {
-        config_->pursuit_choice = PursuitChoice::L1;
-        scan_setA(setA, false);
-      }
+    }
+    if (collision_resolving_ && !pairs_5in3_.empty()) {
+      resolve_5in3();
     }
 
     unresolved_elements_.clear();
@@ -157,12 +156,12 @@ public:
     }
   }
 
-  std::unordered_map<int, ArrType>& result() {
+  std::unordered_map<IndexType, ArrType>& result() {
     return result_;
   }
 
   // returns number of detected collisions
-  int resolve_collision(DoroDecoder& other, std::unordered_set<int>& setA, std::unordered_set<int>& setB) {
+  int resolve_collision(DoroDecoder& other) {
     assert(finger_hash_ != nullptr && *other.finger_hash_ == *finger_hash_);
     assert(resolving_hash_ != nullptr && *other.resolving_hash_ == *resolving_hash_);
     int num_collisions = 0;
@@ -172,27 +171,17 @@ public:
       auto [finger_iter, iter_end] = my_fingerprints_.equal_range(finger1);
       for (; finger_iter != iter_end; ++finger_iter) {
         int element = finger_iter->second;
-        int other_element = other.unresolved_ids_[i];
+        IndexType other_element = other.unresolved_ids_[i];
         int f2_element = (*resolving_hash_)(element);
         if (f2_element == finger2) {  // collision detected, reverting
           // CAUTION: if there is any collision with finger2, then set reconciliation would fail.
           ++num_collisions;
           ArrType cur_value = result_.at(element);
           ArrType other_value = other.result_.at(other_element);
-          if (cur_value != 0) {
-            result_[element] = 0;
-            ++code_->num_peels();
-            ++code_->num_correct_peels();
-          }
-          if (other_value != 0) {
-            other.result_[element] = 0;
-            ++other.code_->num_peels();
-            ++other.code_->num_correct_peels();
-          }
+          result_[element] = 0;
+          other.result_[element] = 0;
           code_->peel(element, -cur_value);
           other.code_->peel(other_element, -other_value);
-          setA.erase(element);
-          setB.erase(element);
           break;
         } // else accept the change, nothing is needed
       }
@@ -201,15 +190,36 @@ public:
     return num_collisions;
   }
 
-  void reset() {
-    result_.clear();
-    fingerprints_.clear();
-    thrashing_.clear();
-    priority_queue_.clear();
-    collision_resolving_ = false;
-    unresolved_elements_.clear();
-    my_fingerprints_.clear();
-    unresolved_ids_.clear();
+  void resolve_5in3() {
+    if constexpr (!std::is_integral_v<ArrType>) return;
+    for (auto [e1, e2] : pairs_5in3_) {
+      ArrType e1_val = result_.contains(e1)? result_.at(e1) : 0;
+      ArrType e2_val = result_.contains(e2)? result_.at(e2) : 0;
+      if (!e1_val && !e2_val) continue;
+      assert(!e1_val || !e2_val);
+      ArrType val = e1_val ? e1_val : e2_val;
+      IndexType cur = e1_val ? e1 : e2;  
+      IndexType other = e1_val? e2 : e1;
+      ArrType strength = (code_->sense(cur) - code_->sense(other)) * (-val);
+      if (strength >= 3) {
+        code_->peel(cur, -val);
+        code_->peel(other, val);
+        result_[cur] = 0;
+        result_[other] = val;
+        new_elements_.insert(other);  // what if other is already decoded by the other party?
+      
+        affected_neighbors_.clear();
+        auto all_hashes = code_->hash_all(cur);
+        for (auto [index, sign] : all_hashes) {
+          notify_neighbors(index, sign * val);  // each counter value increases by val.
+        }
+        all_hashes = code_->hash_all(other);
+        for (auto [index, sign] : all_hashes) {
+          notify_neighbors(index, -sign * val);  
+        }
+        update_neighbor_strengths(-1);
+      }
+    }
   }
 
   void enter_resolving() {
@@ -220,7 +230,11 @@ public:
     return unresolved_elements_;
   }
 
-  void add_to_priority_queue(int element, ArrType strength, ArrType delta) {
+  bool has_new_elements() const {
+    return !new_elements_.empty();
+  }
+
+  void add_to_priority_queue(IndexType element, ArrType strength, ArrType delta) {
     // if fingerprint mechanism is active, then this element must not collide with any known fingerprint
     // this is set to avoid the case in which one party adds an element, and another party subtracts it.
     bool fingerprint_condition = (finger_hash_ == nullptr) || !fingerprints_.contains(finger_hash_->hash_in_range(element));
@@ -254,7 +268,7 @@ private:
     return delta;
   }
 
-  ArrType strength_to_delta(int element, ArrType strength) const {
+  ArrType strength_to_delta(IndexType element, ArrType strength) const {
     bool is_l2 = config_->pursuit_choice == PursuitChoice::L2;
     auto cur_iter = result_.find(element);
     ArrType cur_element_value = (cur_iter != result_.end()) ? cur_iter->second : 0;
@@ -263,37 +277,34 @@ private:
     return get_delta(normalized_strength, cur_element_value);
   }
 
-  ArrType new_strength(int element, ArrType strength, ArrType delta, int k) const {
+  ArrType new_strength2(IndexType element, ArrType strength, ArrType delta) const {
     bool is_l2 = config_->pursuit_choice == PursuitChoice::L2;
-    return is_l2 ? code_->sense(element) : code_->sense_l1(element);
-  }
-
-  ArrType new_strength2(int element, ArrType strength, ArrType delta, int k) const {
-    bool is_l2 = config_->pursuit_choice == PursuitChoice::L2;
-    ArrType new_str = is_l2 ? strength + delta * k : code_->sense_l1(element);
+    ArrType new_str = is_l2 ? strength + delta : code_->sense_l1(element);
     assert(!is_l2 || new_str == code_->sense(element));
-    // the bookkeeping of strengths should always be correct
+    // the bookkeeping of strengths should always be correct. Assertion is only checked in debug build.
     return new_str;
   }
 
-  void notify_neighbors(int exclude_element, int counter_idx, ArrType strength_change) {
-    for (int neighbor : neighbors_[counter_idx]) {
-      if (neighbor == exclude_element) continue; // exclude_element has been separately considered
-      auto neighbor_iter = affected_neighbors_.find(neighbor);
-      affected_neighbors_[neighbor] =
-        (neighbor_iter != affected_neighbors_.end()) ? neighbor_iter->second + strength_change : strength_change;
+  void notify_neighbors(int counter_idx, ArrType strength_change) {
+    for (IndexType neighbor : neighbors_[counter_idx]) {
+      if (!affected_neighbors_.contains(neighbor)) affected_neighbors_[neighbor] = 0;
+      affected_neighbors_[neighbor] += strength_change;
     }
-    for (int neighbor : neighbors2_[counter_idx]) {
-      if (neighbor == exclude_element) continue;
-      auto neighbor_iter = affected_neighbors_.find(neighbor);
-      affected_neighbors_[neighbor] =
-        (neighbor_iter != affected_neighbors_.end()) ? neighbor_iter->second - strength_change : -strength_change;
+    for (IndexType neighbor : neighbors2_[counter_idx]) {
+      if (!affected_neighbors_.contains(neighbor)) affected_neighbors_[neighbor] = 0;
+      affected_neighbors_[neighbor] -= strength_change;
     }
   }
 
-  void update_neighbor_strengths() {
+  void update_neighbor_strengths(IndexType element) {
     for (auto [neighbor, strength_change] : affected_neighbors_) {
-      ArrType neighbor_strength = new_strength2(neighbor, priority_queue_[neighbor], strength_change, 1);
+      if (element > 0 && k_is_five_ && element != neighbor && std::abs(strength_change) >= 3) {
+        std::pair<IndexType, IndexType> ele_nei = (element < neighbor) ? std::make_pair(element, neighbor) : std::make_pair(neighbor, element);
+        if (!pairs_5in3_.contains(ele_nei)) {
+          pairs_5in3_.insert(ele_nei);
+        }
+      }
+      ArrType neighbor_strength = new_strength2(neighbor, priority_queue_[neighbor], strength_change);
       ArrType neighbor_delta = strength_to_delta(neighbor, neighbor_strength);
       add_to_priority_queue(neighbor, neighbor_strength, neighbor_delta);
     }
@@ -314,43 +325,56 @@ private:
           ArrType delta = new_value - cur_value;
           code_->code()[i] = new_value;
           ++code_->num_recenters();
-          notify_neighbors(-1, i, delta);
+          notify_neighbors(i, delta);
         }
     }
-    update_neighbor_strengths();
+    update_neighbor_strengths(-1);
     return max_delta;
   }
 
-  void scan_setA(const std::unordered_set<int>& setA, bool is_l2) {
-  for (int element : setA) {
-      auto all_hashes = code_->hash_all(element);
-      for (auto [index, sign] : all_hashes) {
-        if (sign > 0)
-          neighbors_[index].push_back(element);
-        else neighbors2_[index].push_back(element);
+  void scan_setA(bool is_l2) {
+    for (IndexType element : *setA_) {
+      if (!valid_neighbors_) {
+        auto all_hashes = code_->hash_all(element);
+        for (auto [index, sign] : all_hashes) {
+          if (sign > 0)
+            neighbors_[index].push_back(element);
+          else neighbors2_[index].push_back(element);
+        }
       }
       ArrType strength = is_l2 ? code_->sense(element) : code_->sense_l1(element);
       ArrType delta = strength_to_delta(element, strength);
       add_to_priority_queue(element, strength, delta);
     }
+    valid_neighbors_ = true;
   }
 
   DoroCodeT* code_;
+  const std::unordered_set<IndexType>* setA_;
+  bool k_is_five_;  // a special case for handling rarely colliding element pairs when k = 5
+  bool valid_neighbors_; // the neighbors set are already established
   int max_recenter_rounds_;
   ONIAK::WYHash* finger_hash_, * resolving_hash_;
+  // neighbors_[index] stores elements that have a plus sign at index
+  // neighbors2_[index] stores those with a minus sign
   TwoDimVector neighbors_, neighbors2_;
-  std::unordered_map<int, ArrType> result_;
+  // decoded result
+  std::unordered_map<IndexType, ArrType> result_;
   std::unordered_set<int> fingerprints_;
-  std::unordered_set<int> new_elements_;
-  std::unordered_map<int, int> thrashing_;
+  std::unordered_multimap<int, IndexType> my_fingerprints_;
+  // element -> number of times its value has changed
+  std::unordered_map<IndexType, int> thrashing_;
+  // new elements decoded in this round
+  std::unordered_set<IndexType> new_elements_;
+  // if k = 5, this stores pairs of elements with 3 collisions.
+  std::set<std::pair<IndexType, IndexType>> pairs_5in3_;
   // a buffer that stores all affected neighbors in case of code counter updates.
-  std::unordered_map<int, ArrType> affected_neighbors_;   // <id, delta>
-  std::unordered_multimap<int, int> my_fingerprints_;
+  std::unordered_map<IndexType, ArrType> affected_neighbors_;   // <id, delta>
   UpdatePQ priority_queue_;
   DecodeConfig* config_;
   bool collision_resolving_;
   std::vector<std::pair<int, int>> unresolved_elements_;
-  std::vector<int> unresolved_ids_;
+  std::vector<IndexType> unresolved_ids_;
 };
+
 }
-#endif
