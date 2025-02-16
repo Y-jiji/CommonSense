@@ -4,9 +4,11 @@
 #include "libONIAK/oniakDataStructure/oupq.h"
 #include "libONIAK/oniakHash/ohash.h"
 #include "libONIAK/oniakMath/orange.h"
+#include "IBLT-opt/iblt.h"
 
 #include <algorithm>
 #include <cassert>
+#include <cstring>
 #include <format>
 #include <functional>
 #include <iostream>
@@ -32,6 +34,23 @@ struct DecodeConfig {
   PursuitChoice pursuit_choice;
 };
 
+template <typename IndexType>
+std::vector<uint8_t> to_binary_vector(const IndexType& x) {
+  constexpr size_t size = sizeof(IndexType);
+  std::vector<uint8_t> result(size);
+  std::memcpy(result.data(), &x, size);
+  return result;
+}
+
+template <typename IndexType>
+IndexType from_binary_vector(const std::vector<uint8_t>& vec) {
+  assert(vec.size() == sizeof(IndexType));
+  IndexType result;
+  std::memcpy(&result, vec.data(), vec.size());
+  return result;
+}
+
+
 template <typename DoroCodeT, ONIAK::UpdatePQBackend backend = ONIAK::UpdatePQBackend::PriorityQueue>
 class DoroDecoder {
 public:
@@ -39,6 +58,7 @@ public:
   using IndexType = typename DoroCodeT::IndexT;
   using TwoDimVector = std::vector<std::vector<IndexType>>;
   using UpdatePQ = ONIAK::UpdatePQAdapter<IndexType, ArrType, backend>::type;
+  using IBLTResultType = std::pair<uint64_t, std::vector<uint8_t> >;
 
   DoroDecoder(DoroCodeT& code, const std::unordered_set<IndexType>& setA, DecodeConfig& config, int max_recenter_rounds = 10,
     ONIAK::WYHash* finger_hash = nullptr, ONIAK::WYHash* resolving_hash = nullptr) :
@@ -113,16 +133,7 @@ public:
     unresolved_elements_.clear();
     unresolved_ids_.clear();
     if (collision_resolving_ && finger_hash_ != nullptr && resolving_hash_ != nullptr) {
-      for (auto key : new_elements_) {
-        if (std::abs(result_.at(key)) > 1e-6) {
-          int finger1 = finger_hash_->hash_in_range(key);
-          if (fingerprints_.contains(finger1)) {
-            int finger2 = (*resolving_hash_)(key);
-            unresolved_elements_.push_back({ finger1, finger2 });
-            unresolved_ids_.push_back(key);
-          }
-        }
-      }
+      add_unresolved_elements();
     }
     return code_->num_peels();
   }
@@ -219,6 +230,66 @@ public:
         }
         update_neighbor_strengths(-1);
       }
+    }
+  }
+
+  void encode_iblt(IBLT& iblt) const {
+    for (const IndexType& element : *setA_) {
+      // elements that are assumed not to be in result
+      if (!(result_.contains(element) && result_.at(element) != 0)) {
+        iblt.insert(static_cast<uint64_t>(element), to_binary_vector(element));
+      }
+    }
+  }
+
+  std::vector<IndexType> decode_iblt(IBLT iblt) {
+    // compute difference iblt
+    for (const IndexType& element : *setA_) {
+      if (!(result_.contains(element) && result_.at(element) != 0)) {
+        iblt.erase(static_cast<uint64_t>(element), to_binary_vector(element));
+      }
+    }
+    std::set<IBLTResultType> positive, negative;
+    // return if failure
+    if (!iblt.listEntries(positive, negative)) return {};
+
+    std::vector<IndexType> other_result;
+    ArrType my_value = (config_->ub > 0) ? config_->ub : config_->lb;
+    // negative entries are my extra ones
+    for (const auto& [key, value] : negative) {
+      IndexType element = from_binary_vector<IndexType>(value);
+      // special case, if we have no error, it must be from the other side.
+      if (my_value == 0) {
+        other_result.push_back(element);
+      }
+      else {
+        // here, doro is not updated, since we no longer attempt to peel them.
+        result_[element] = my_value;
+        new_elements_.insert(element);
+      }
+    }  // these new elements still may collide with those in the other party.
+    add_unresolved_elements();
+
+    // positive entries are the other's extra ones
+
+    for (const auto& [key, value] : positive) {
+      IndexType element = from_binary_vector<IndexType>(value);
+      if (setA_->contains(element)) {  // false positive is at my side
+        result_[element] = 0;
+      }
+      else
+        other_result.push_back(element);
+    }
+    return other_result;
+  }
+
+  void add_iblt_elements(std::vector<IndexType> list) {
+    ArrType my_value = (config_->ub > 0) ? config_->ub : config_->lb;
+    for (const IndexType& element : list) {
+      // considering the special case above, we flip our result
+      if (result_.contains(element) && result_.at(element) != 0) result_[element] = 0;
+      else
+        result_[element] = my_value;
     }
   }
 
@@ -347,6 +418,19 @@ private:
       add_to_priority_queue(element, strength, delta);
     }
     valid_neighbors_ = true;
+  }
+
+  void add_unresolved_elements() {
+    for (auto key : new_elements_) {
+      if (std::abs(result_.at(key)) > 1e-6) {
+        int finger1 = finger_hash_->hash_in_range(key);
+        if (fingerprints_.contains(finger1)) {
+          int finger2 = (*resolving_hash_)(key);
+          unresolved_elements_.push_back({ finger1, finger2 });
+          unresolved_ids_.push_back(key);
+        }
+      }
+    }
   }
 
   DoroCodeT* code_;

@@ -38,7 +38,7 @@ using namespace boost::math;
 enum class Party { Alis = 0, Bela = 1 };
 enum class Status { CollisionAvoiding = 0, CollisionResolving = 1, Finished = 2 };
 using CounterType = int16_t;
-using IndexType = VeryLargeInt<54d>;
+using IndexType = VeryLargeInt<64>;
 using DoroCodeType = DoroCode<IndexType, CounterType>;
 
 // The following constants are used for parameter tuning
@@ -46,8 +46,12 @@ constexpr double diff_coding_error_min = 1e-9;
 constexpr double diff_coding_error_max = 0.1;
 constexpr double diff_coding_error_final = 1e-6;
 constexpr double bch_block_error_rate = 0.01;
+constexpr int iblt_element_margin = 100;
+constexpr double iblt_element_factor = 1.25;
+constexpr int iblt_cell_size = sizeof(IndexType) * 8 + 32; // 32 key-check bits.
 
 // get the current decoding status and error counts.
+// every key in result is regarded as valid as long as value is not 0.
 bool get_sizes(const std::unordered_map<IndexType, CounterType>& result1,
   const std::unordered_map<IndexType, CounterType>& result2,
   const std::unordered_set<IndexType>& setA_minus_B, const std::unordered_set<IndexType>& setB_minus_A,
@@ -107,6 +111,8 @@ bool get_sizes(const std::unordered_map<IndexType, CounterType>& result1,
 
 // automatically decide the signature lengths
 std::pair<int, int> signature_length(double A_minus_B_size, double B_minus_A_size, double failure_rate) {
+  // signature is not needed if difference is one-sided.
+  if (B_minus_A_size < 1 || A_minus_B_size < 1) return { 1, 0 };
   B_minus_A_size *= 1.25; // account for erroneous elements in the intersection
   double alpha = A_minus_B_size / B_minus_A_size;
   auto lam = [alpha, failure_rate, B_minus_A_size](double beta) {
@@ -244,6 +250,24 @@ doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_min
 uint8_t get_bch_data(int val, float interval) {
   int bch_data = floor(val / interval);
   return bch_data;
+}
+
+// it is decoder who has unresolved elements
+// return value is (resolving_cost, extra_comm_rounds)
+std::pair<int, int> resolve_collisions(DoroDecoder<DoroCodeType>& decoder, DoroDecoder<DoroCodeType>& other_decoder,
+  int finger_s, int finger_l) {
+  int unresolved_size = decoder.unresolved_elements().size();
+  double resolving_cost = unresolved_size * (log2_ceil(finger_s) + finger_l);
+  if (unresolved_size > 0) {
+    int extra_comm_rounds = 1; // need an additional resolving round
+    int number_collisions = other_decoder.resolve_collision(decoder);
+    if (number_collisions > 0) {
+      resolving_cost += unresolved_size;
+      extra_comm_rounds = 2;   // resolving round needs feedback
+    }
+    return { resolving_cost, extra_comm_rounds };
+  }
+  else return { 0, 0 };
 }
 
 int main(int argc, char* argv[]) {
@@ -442,6 +466,8 @@ int main(int argc, char* argv[]) {
   Status status = Status::CollisionAvoiding;
   DecodeConfig dconf_alis(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ -1, /*ub*/ 0, max_num_peels, PursuitChoice::L2),
     dconf_bela(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, max_num_peels, PursuitChoice::L2);
+  if (A_minus_B_size == 0) dconf_alis.lb = 0;
+  if (B_minus_A_size == 0) dconf_bela.ub = 0;
   DoroDecoder<DoroCodeType> decoder_alis(doro, setA, dconf_alis, max_recenter_rounds, &finger_hash, &resolving_hash),
     decoder_bela(doro, setB, dconf_bela, max_recenter_rounds, &finger_hash, &resolving_hash);
   StopWatch sw;
@@ -490,23 +516,17 @@ int main(int argc, char* argv[]) {
     float actual_load = new_extra_size / finger_s;
     unordered_map<int8_t, double> finger_pmf = { {0, 1.0 - actual_load}, {1, actual_load} };
     RansWrapper<int8_t, double> finger_rans(finger_pmf);
-    RansCode compressed_fingers = finger_rans.encode(fingerprints_delta);
-    auto decompressed_fingers = finger_rans.decode(compressed_fingers);
-    other_decoder.load_fingerprints(decompressed_fingers);
-    DEBUG_VECTOR_EQUAL(decompressed_fingers, fingerprints_delta);
-
-    int unresolved_size = decoder.unresolved_elements().size();
-    double resolving_cost = unresolved_size * (log2_ceil(finger_s) + finger_l);
-    if (!decoder.unresolved_elements().empty()) {
-      int num_unresolved = decoder.unresolved_elements().size();
-      actual_comm_rounds = std::max(actual_comm_rounds, comm_rounds + 2); // need an additional resolving round
-      int number_collisions = other_decoder.resolve_collision(decoder);
-      if (number_collisions > 0) {
-        resolving_cost += num_unresolved;
-        actual_comm_rounds = std::max(actual_comm_rounds, comm_rounds + 3);   // resolving round needs feedback
-      }
+    double finger_cost = 0;
+    if (new_extra_size > 1 && finger_s > 1) {
+      RansCode compressed_fingers = finger_rans.encode(fingerprints_delta);
+      finger_cost = compressed_fingers.size() + 32; // 4 bytes to transmit actual load.
+      auto decompressed_fingers = finger_rans.decode(compressed_fingers);
+      other_decoder.load_fingerprints(decompressed_fingers);
+      DEBUG_VECTOR_EQUAL(decompressed_fingers, fingerprints_delta);
     }
-    double finger_cost = compressed_fingers.size() + 32; // 4 bytes to transmit actual load.
+
+    auto [resolving_cost, extra_comm_rounds] = resolve_collisions(decoder, other_decoder, finger_s, finger_l);
+    actual_comm_rounds = std::max(actual_comm_rounds, comm_rounds + extra_comm_rounds + 1);
     config["finger costs"].push_back(finger_cost);
     config["resolving costs"].push_back(resolving_cost);
     double comm_cost = doro_cost + finger_cost + resolving_cost;
@@ -522,8 +542,41 @@ int main(int argc, char* argv[]) {
         decoder_alis.enter_resolving();
         decoder_bela.enter_resolving();
         config["round entering resolving"] = actual_comm_rounds;
+      } else if (!decoder.has_new_elements()) {
+        status = Status::Finished;
       }
-      else if (!decoder.has_new_elements()) status = Status::Finished;
+    }
+    if (status == Status::Finished || comm_rounds == max_comm_rounds - 1) {
+      // final IBLT stage.
+      if (!doro.empty()) {
+        int estimated_diff = sample_mean_variance(doro.code()).second * doro.code().size() * iblt_element_factor + iblt_element_margin;
+        config["estimated diff"] = estimated_diff;
+        IBLT iblt(estimated_diff, sizeof(IndexType));
+        decoder.encode_iblt(iblt);
+        comm_rounds = actual_comm_rounds;
+        ++actual_comm_rounds;
+        int iblt_size = iblt_cell_size * iblt.hashTableSize();
+        config["comm costs"].push_back(iblt_size);
+
+        // IBLT reaches the other party. My extra elements are returned.
+        vector<IndexType> my_elements = other_decoder.decode_iblt(std::move(iblt));
+        int my_element_size = my_elements.size() * sizeof(IndexType) * 8;
+        if (!my_elements.empty()) ++actual_comm_rounds;
+        config["iblt size"] = iblt_size + my_element_size;
+        decoder.add_iblt_elements(my_elements);
+
+        // finally resolve collisions between decoder and other
+        auto [resolving_cost, extra_comm_rounds] = resolve_collisions(other_decoder, decoder, finger_s, finger_l);
+        actual_comm_rounds = std::max(actual_comm_rounds, comm_rounds + extra_comm_rounds + 1);
+
+        // update reconciliation success and costs
+        config["resolving costs"].push_back(resolving_cost);
+        config["comm costs"].push_back(my_element_size + resolving_cost);
+        success = success || get_sizes(decoder.result(), other_decoder.result(),
+          setA_minus_B, setB_minus_A, config, doro);
+        config["time"].push_back(sw.peek());
+      }
+      status = Status::Finished;
     }
     ++comm_rounds;
   }

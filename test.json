@@ -1,65 +1,101 @@
 {
     "A intersect B remaining": [
+        2268,
+        2268,
+        2268,
         0
     ],
     "A minus B remaining": [
+        0,
+        0,
+        0,
         0
     ],
     "A minus B size": 0,
-    "A size": 100000,
+    "A size": 1000000,
     "B minus A remaining": [
+        2050,
+        2050,
+        2050,
         0
     ],
-    "B size": 101000,
+    "B size": 1010000,
     "comm costs": [
-        18385.0
+        178097.0,
+        36689.0,
+        36689.0,
+        36689.0,
+        948096,
+        276352
     ],
-    "communication rounds": 1,
+    "communication rounds": 5,
     "counting": true,
-    "d": 8000,
+    "d": 90000,
+    "debug": false,
     "df": 8,
     "diff": [
         "EVAL",
         "${B size} - ${A size} + 2 * ${A minus B size}"
     ],
     "doro costs": [
-        18385.0
+        178097.0,
+        36689.0,
+        36689.0,
+        36689.0
     ],
+    "estimated diff": 7261,
+    "failure rate": 0.0001,
     "finger costs": [
-        0
+        0,
+        0.0,
+        0.0,
+        0.0
     ],
-    "k": 7,
-    "max comm rounds": 10,
+    "iblt size": 1224448,
+    "k": 5,
+    "max comm rounds": 3,
     "max num peels": 1000000000,
     "max process": 30,
     "max recenter rounds": 10,
     "max rounds": 1000,
     "num peels": [
-        1236
+        11364,
+        11364,
+        11364
     ],
-    "number of corrected errors": 108,
+    "number of corrected errors": 1690,
     "number of failed blocks": 0,
-    "number of recenters": 0,
+    "number of recenters": 47,
     "resolving costs": [
+        0,
+        0,
+        0,
+        0,
         0
     ],
     "resolving round": -1,
-    "result filename": "/media/mydrive/CDMA/test.json",
+    "result filename": "test.json",
     "root path": "/media/mydrive/CDMA",
+    "round entering resolving": 2,
     "script": [
         "ROOT/build/bin/doro",
         "JSON"
     ],
-    "seed": 4191464797,
+    "seed": 1857940832,
     "success": true,
-    "ta": 100,
     "theoretical entropy costs": [
-        14124.334873259259
+        126789.36550170682,
+        36402.018672490245,
+        36402.018672490245,
+        36402.018672490245
     ],
     "time": [
-        8.024502857
+        3.000361655,
+        4.066189775,
+        4.526143754,
+        5.297755811
     ],
-    "total communication cost": 18385.0,
-    "total theoretical entropy cost": 14124.334873259259,
-    "universe": 5000000
+    "total communication cost": 1512612.0,
+    "total theoretical entropy cost": 235995.42151917756,
+    "universe": 2000000
 }

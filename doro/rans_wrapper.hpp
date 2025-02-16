@@ -143,9 +143,9 @@ public:
     size_t result_size = default_mode_ ? sizeof(T) : data.size() * sizeof(T) + 2;
     RansCode result(result_size);
     if (default_mode_) {
+      result.offset_ = 0;
       auto result_head = reinterpret_cast<T*>(result.data());
       *result_head = default_sym_;
-      result.offset_ = 0;
       result.default_mode_ = true;
       result.data_length_ = data.size();
     }
