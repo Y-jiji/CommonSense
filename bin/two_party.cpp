@@ -6,11 +6,14 @@
 
 #include "libONIAK/oniakDataStructure/ohist.h"
 #include "libONIAK/oniakDebug/odebug.h"
+#include "libONIAK/oniakMath/overylarge.h"
 #include "libONIAK/oniakRandom/orand.h"
 #include "libONIAK/oniakTimer/otime.h"
 #include "nlohmann/json.hpp"
+#include "IBLT-opt/iblt.h"
 
 #include <algorithm>
+#include <bitset>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -35,6 +38,8 @@ using namespace boost::math;
 enum class Party { Alis = 0, Bela = 1 };
 enum class Status { CollisionAvoiding = 0, CollisionResolving = 1, Finished = 2 };
 using CounterType = int16_t;
+using IndexType = VeryLargeInt<54d>;
+using DoroCodeType = DoroCode<IndexType, CounterType>;
 
 // The following constants are used for parameter tuning
 constexpr double diff_coding_error_min = 1e-9;
@@ -43,11 +48,11 @@ constexpr double diff_coding_error_final = 1e-6;
 constexpr double bch_block_error_rate = 0.01;
 
 // get the current decoding status and error counts.
-bool get_sizes(const std::unordered_map<int, CounterType>& result1,
-  const std::unordered_map<int, CounterType>& result2,
-  const std::unordered_set<int>& setA_minus_B, const std::unordered_set<int>& setB_minus_A,
-  json& config, const DoroCode<CounterType>& doro) {
-  int A_minus_B_remaining_size = setA_minus_B.size(), B_minus_A_remaining_size = setB_minus_A.size(),
+bool get_sizes(const std::unordered_map<IndexType, CounterType>& result1,
+  const std::unordered_map<IndexType, CounterType>& result2,
+  const std::unordered_set<IndexType>& setA_minus_B, const std::unordered_set<IndexType>& setB_minus_A,
+  json& config, const DoroCodeType& doro) {
+  size_t A_minus_B_remaining_size = setA_minus_B.size(), B_minus_A_remaining_size = setB_minus_A.size(),
     A_intersect_B_remaining_size = 0;
   bool debug_flag = config.contains("debug") && config.at("debug");
   for (auto [key, value] : result1) {
@@ -113,8 +118,7 @@ std::pair<int, int> signature_length(double A_minus_B_size, double B_minus_A_siz
   return { finger_s, finger_l };
 }
 
-template <typename T>
-Skellam moment_fit_skellam(const DoroCode<T>& code) {
+Skellam moment_fit_skellam(const DoroCodeType& code) {
   auto [mean, variance] = ONIAK::sample_mean_variance(code.code());
   double mu1, mu2;
   if (code.is_cbf()) {
@@ -314,26 +318,26 @@ int main(int argc, char* argv[]) {
   }
 
   mt19937 rng(seed);
-  auto rand_vec = random_nonrepetitive<int>(universe, A_union_B_size, rng);
+  auto rand_vec = random_nonrepetitive<IndexType>(A_union_B_size, rng);
   std::shuffle(rand_vec.begin(), rand_vec.end(), rng);
   // set A is [0, A_size), and set B is [A_minus_B_size, A_union_B_size)
-  unordered_set<int> setA(rand_vec.begin(), rand_vec.begin() + A_size);
-  unordered_set<int> setB(rand_vec.begin() + A_minus_B_size, rand_vec.end());
-  unordered_set<int> setA_minus_B(rand_vec.begin(), rand_vec.begin() + A_minus_B_size);
-  unordered_set<int> setB_minus_A(rand_vec.begin() + A_size, rand_vec.end());
+  unordered_set<IndexType> setA(rand_vec.begin(), rand_vec.begin() + A_size);
+  unordered_set<IndexType> setB(rand_vec.begin() + A_minus_B_size, rand_vec.end());
+  unordered_set<IndexType> setA_minus_B(rand_vec.begin(), rand_vec.begin() + A_minus_B_size);
+  unordered_set<IndexType> setB_minus_A(rand_vec.begin() + A_size, rand_vec.end());
 
   auto auto_parameter = doro_parameter_tuning(d, k, A_minus_B_size, B_minus_A_size, bch_cap, diff_coding_error);
   cout << "Automatically selected the following parameters: " << endl;
   print_doro_parameter(auto_parameter);
 
-  DoroCode<CounterType> doro(d, k, counting, rng, auto_parameter.lb, auto_parameter.ub);
+  DoroCodeType doro(d, k, counting, rng, auto_parameter.lb, auto_parameter.ub);
   // copy to keep the same set of hash functions
   auto first_round_code = doro;
-  unordered_map<int, CounterType> Bela_coef, Alis_coef;
-  for (int i : rand_vec | views::take(A_size)) {
+  unordered_map<IndexType, CounterType> Bela_coef, Alis_coef;
+  for (auto& i : rand_vec | views::take(A_size)) {
     Alis_coef[i] = 1;
   }
-  for (int i : rand_vec | views::drop(A_minus_B_size)) {
+  for (auto& i : rand_vec | views::drop(A_minus_B_size)) {
     Bela_coef[i] = 1;  // in Bela
   }
   first_round_code.encode(Alis_coef);
@@ -438,10 +442,9 @@ int main(int argc, char* argv[]) {
   Status status = Status::CollisionAvoiding;
   DecodeConfig dconf_alis(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ -1, /*ub*/ 0, max_num_peels, PursuitChoice::L2),
     dconf_bela(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, max_num_peels, PursuitChoice::L2);
-  DoroDecoder<CounterType> decoder_alis(doro, setA, dconf_alis, max_recenter_rounds, &finger_hash, &resolving_hash),
+  DoroDecoder<DoroCodeType> decoder_alis(doro, setA, dconf_alis, max_recenter_rounds, &finger_hash, &resolving_hash),
     decoder_bela(doro, setB, dconf_bela, max_recenter_rounds, &finger_hash, &resolving_hash);
   StopWatch sw;
-  bool no_advance = false;
   int comm_rounds = 0, actual_comm_rounds = 0;
   bool success = false;
 
@@ -455,9 +458,8 @@ int main(int argc, char* argv[]) {
     // who is current decoder?
     party = (party == Party::Alis) ? Party::Bela : Party::Alis;
     DecodeConfig& dconf = (party == Party::Alis) ? dconf_alis : dconf_bela;
-    DoroDecoder<CounterType>& decoder = (party == Party::Alis) ? decoder_alis : decoder_bela,
+    DoroDecoder<DoroCodeType>& decoder = (party == Party::Alis) ? decoder_alis : decoder_bela,
       & other_decoder = (party == Party::Alis) ? decoder_bela : decoder_alis;
-    unordered_set<int>& candidates = (party == Party::Alis) ? setA : setB;
     int num_peels = decoder.decode();
 
     if (doro.empty() && decoder.unresolved_elements().empty()) {
@@ -521,11 +523,8 @@ int main(int argc, char* argv[]) {
         decoder_bela.enter_resolving();
         config["round entering resolving"] = actual_comm_rounds;
       }
-      else if (!no_advance) no_advance = true;
       else if (!decoder.has_new_elements()) status = Status::Finished;
     }
-    else no_advance = false;
-
     ++comm_rounds;
   }
 

@@ -32,11 +32,11 @@ struct DecodeConfig {
   PursuitChoice pursuit_choice;
 };
 
-template <typename ArrType = int32_t, ONIAK::UpdatePQBackend backend = ONIAK::UpdatePQBackend::PriorityQueue>
+template <typename DoroCodeT, ONIAK::UpdatePQBackend backend = ONIAK::UpdatePQBackend::PriorityQueue>
 class DoroDecoder {
 public:
-  using DoroCodeT = DoroCode<ArrType>;
-  using IndexType = typename DoroCodeT::IndexType;
+  using ArrType = typename DoroCodeT::ArrayT;
+  using IndexType = typename DoroCodeT::IndexT;
   using TwoDimVector = std::vector<std::vector<IndexType>>;
   using UpdatePQ = ONIAK::UpdatePQAdapter<IndexType, ArrType, backend>::type;
 
@@ -75,7 +75,7 @@ public:
       for (auto [index, sign] : all_hashes) {
         notify_neighbors(index, -sign * delta);  // minus because the counter is reduced by delta
       }
-      update_neighbor_strengths(element);
+      update_neighbor_strengths(element, /*append53*/ true);
 
       if (config_->verbose) {
         std::cout << std::format("thrash: {}, power: {}, element: {}, cur_element_value: {}, delta: {}\n",
@@ -170,7 +170,7 @@ public:
       auto [finger1, finger2] = finger_i;
       auto [finger_iter, iter_end] = my_fingerprints_.equal_range(finger1);
       for (; finger_iter != iter_end; ++finger_iter) {
-        int element = finger_iter->second;
+        IndexType element = finger_iter->second;
         IndexType other_element = other.unresolved_ids_[i];
         int f2_element = (*resolving_hash_)(element);
         if (f2_element == finger2) {  // collision detected, reverting
@@ -193,13 +193,13 @@ public:
   void resolve_5in3() {
     if constexpr (!std::is_integral_v<ArrType>) return;
     for (auto [e1, e2] : pairs_5in3_) {
-      ArrType e1_val = result_.contains(e1)? result_.at(e1) : 0;
-      ArrType e2_val = result_.contains(e2)? result_.at(e2) : 0;
+      ArrType e1_val = result_.contains(e1) ? result_.at(e1) : 0;
+      ArrType e2_val = result_.contains(e2) ? result_.at(e2) : 0;
       if (!e1_val && !e2_val) continue;
       assert(!e1_val || !e2_val);
       ArrType val = e1_val ? e1_val : e2_val;
-      IndexType cur = e1_val ? e1 : e2;  
-      IndexType other = e1_val? e2 : e1;
+      IndexType cur = e1_val ? e1 : e2;
+      IndexType other = e1_val ? e2 : e1;
       ArrType strength = (code_->sense(cur) - code_->sense(other)) * (-val);
       if (strength >= 3) {
         code_->peel(cur, -val);
@@ -207,7 +207,7 @@ public:
         result_[cur] = 0;
         result_[other] = val;
         new_elements_.insert(other);  // what if other is already decoded by the other party?
-      
+
         affected_neighbors_.clear();
         auto all_hashes = code_->hash_all(cur);
         for (auto [index, sign] : all_hashes) {
@@ -215,7 +215,7 @@ public:
         }
         all_hashes = code_->hash_all(other);
         for (auto [index, sign] : all_hashes) {
-          notify_neighbors(index, -sign * val);  
+          notify_neighbors(index, -sign * val);
         }
         update_neighbor_strengths(-1);
       }
@@ -296,9 +296,9 @@ private:
     }
   }
 
-  void update_neighbor_strengths(IndexType element) {
+  void update_neighbor_strengths(IndexType element, bool append_53 = false) {
     for (auto [neighbor, strength_change] : affected_neighbors_) {
-      if (element > 0 && k_is_five_ && element != neighbor && std::abs(strength_change) >= 3) {
+      if (append_53 && k_is_five_ && element != neighbor && std::abs(strength_change) >= 3) {
         std::pair<IndexType, IndexType> ele_nei = (element < neighbor) ? std::make_pair(element, neighbor) : std::make_pair(neighbor, element);
         if (!pairs_5in3_.contains(ele_nei)) {
           pairs_5in3_.insert(ele_nei);

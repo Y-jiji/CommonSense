@@ -18,12 +18,13 @@ namespace Doro {
 constexpr int kDoroNumHashFuncs = 30;
 constexpr int kDoroNumHashFuncsMargin = 10;
 
-template <typename ArrType = int32_t>
+template <typename IndexType, typename ArrType = int32_t>
 class DoroCode {
 public:
-  using IndexType = int;
   using SparseVector = std::unordered_map<IndexType, ArrType>;
   using PairType = std::pair<IndexType, ArrType>;
+  using IndexT = IndexType;
+  using ArrayT = ArrType;
 
   template <typename RandomDevice>
   DoroCode(int size, int k, bool is_cbf, RandomDevice& rng, int lb = 0, int ub = 0) :
@@ -48,15 +49,15 @@ public:
 
   // if delta is 1, all counters will be REDUCED by 1 (if positive sign)
   // or INCREASED by 1 (if negative sign)
-  void peel(int element, ArrType delta) {
+  void peel(IndexType element, ArrType delta) {
     num_peels_ += 1;
     auto all_hashes = hash_all(element);
     for (auto [index, sign] : all_hashes) {
       arr_[index] -= sign * delta;
     }
     auto element_iter = values_.find(element);
-    int ori_value = (element_iter != values_.end()) ? element_iter->second : 0;
-    int new_value = ori_value - delta;
+    ArrType ori_value = (element_iter != values_.end()) ? element_iter->second : 0;
+    ArrType new_value = ori_value - delta;
     values_[element] = new_value;
     if (std::abs(new_value) < std::abs(ori_value))
       num_correct_peels_ += 1;
@@ -64,7 +65,7 @@ public:
 
   // senses the signal of an element by inner product
   // was performance bottleneck
-  ArrType sense(int element) const {
+  ArrType sense(IndexType element) const {
     ArrType signal = 0;
     auto all_hashes = hash_all(element);
     for (auto [index, sign] : all_hashes) {
@@ -73,7 +74,7 @@ public:
     return signal;
   }
 
-  void print_key(int element) const {
+  void print_key(IndexType element) const {
     auto all_hashes = hash_all(element);
     for (auto [index, sign] : all_hashes) {
       std::cout << index << "\\" << sign * arr_[index] << " ";
@@ -95,7 +96,7 @@ public:
   }
 
   // Returns median signal. If k_ is even, returns the smaller one in absolute value.
-  ArrType sense_l1(int element) const {
+  ArrType sense_l1(IndexType element) const {
     std::vector<ArrType> signals;
     auto all_hashes = hash_all(element);
     for (auto [index, sign] : all_hashes) {
@@ -155,13 +156,9 @@ public:
 
   SparseVector& values() { return values_; }
 
-  // // deprecated because it is slow.
-  // std::pair<IndexType, int> hash(int i, IndexType x) const {
-  //   return hash_all(x)[i];
-  // }
-
-  std::vector<std::pair<IndexType, int>> hash_all(IndexType x) const {
-    std::vector<std::pair<IndexType, int>> all_hashes;
+  // each value is an (index, sign) pair
+  std::vector<std::pair<int, int>> hash_all(IndexType x) const {
+    std::vector<std::pair<int, int>> all_hashes;
     all_hashes.reserve(k_);
     for (auto& hfunc : hash_funcs_) {
       int hash_value = hfunc.hash_in_range(x);
