@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <format>
 #include <inttypes.h>
 #include <iostream>
 #include <numeric>
@@ -77,7 +78,7 @@ public:
   void print_key(IndexType element) const {
     auto all_hashes = hash_all(element);
     for (auto [index, sign] : all_hashes) {
-      std::cout << index << "\\" << sign * arr_[index] << " ";
+      std::print(std::cout, "{}\\{} ", index, sign * arr_[index]);
     }
     std::cout << std::endl;
   }

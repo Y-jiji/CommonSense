@@ -9,7 +9,6 @@
     "ITER_RANDOM",
     10000
   ],
-  "universe": 2000000,
   "A size": 1010000,
   "B size": [
     "ITER_ALL",

@@ -183,9 +183,10 @@ public:
       for (; finger_iter != iter_end; ++finger_iter) {
         IndexType element = finger_iter->second;
         IndexType other_element = other.unresolved_ids_[i];
-        int f2_element = (*resolving_hash_)(element);
+        uint64_t f2_element = resolving_hash_->hash64(element);
         if (f2_element == finger2) {  // collision detected, reverting
           // CAUTION: if there is any collision with finger2, then set reconciliation would fail.
+          assert(element == other_element);
           ++num_collisions;
           ArrType cur_value = result_.at(element);
           ArrType other_value = other.result_.at(other_element);
@@ -297,7 +298,7 @@ public:
     collision_resolving_ = true;
   }
 
-  std::vector<std::pair<int, int>>& unresolved_elements() {
+  std::vector<std::pair<int, uint64_t>>& unresolved_elements() {
     return unresolved_elements_;
   }
 
@@ -425,7 +426,7 @@ private:
       if (std::abs(result_.at(key)) > 1e-6) {
         int finger1 = finger_hash_->hash_in_range(key);
         if (fingerprints_.contains(finger1)) {
-          int finger2 = (*resolving_hash_)(key);
+          uint64_t finger2 = resolving_hash_->hash64(key);
           unresolved_elements_.push_back({ finger1, finger2 });
           unresolved_ids_.push_back(key);
         }
@@ -457,7 +458,7 @@ private:
   UpdatePQ priority_queue_;
   DecodeConfig* config_;
   bool collision_resolving_;
-  std::vector<std::pair<int, int>> unresolved_elements_;
+  std::vector<std::pair<int, uint64_t>> unresolved_elements_;
   std::vector<IndexType> unresolved_ids_;
 };
 

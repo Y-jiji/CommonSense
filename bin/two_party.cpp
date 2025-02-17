@@ -66,7 +66,7 @@ bool get_sizes(const std::unordered_map<IndexType, CounterType>& result1,
     else {
       ++A_intersect_B_remaining_size;
       if (debug_flag) {
-        std::cout << key << "\t A intersect B in this\t";
+        std::print(std::cout, "{} \t A intersect B in this\t", key);
         doro.print_key(key);
       }
     }
@@ -78,7 +78,7 @@ bool get_sizes(const std::unordered_map<IndexType, CounterType>& result1,
     else {
       ++A_intersect_B_remaining_size;
       if (debug_flag) {
-        std::cout << key << "\t A intersect B in other\t";
+        std::print(std::cout, "{} \t A intersect B in other\t", key);
         doro.print_key(key);
       }
     }
@@ -94,14 +94,14 @@ bool get_sizes(const std::unordered_map<IndexType, CounterType>& result1,
     for (auto value : setA_minus_B) {
       if ((!result1.contains(value) || result1.at(value) == 0)
         && (!result2.contains(value) || result2.at(value) == 0)) {
-        std::cout << value << " A minus B \t";
+          std::print(std::cout, "{} \t A minus B\t", value);
         doro.print_key(value);
       }
     }
     for (auto value : setB_minus_A) {
       if ((!result1.contains(value) || result1.at(value) == 0)
         && (!result2.contains(value) || result2.at(value) == 0)) {
-        std::cout << value << " B minus A \t";
+        std::print(std::cout, "{} \t B minus A\t", value);
         doro.print_key(value);
       }
     }
@@ -297,11 +297,6 @@ int main(int argc, char* argv[]) {
   int A_union_B_size = B_size + A_minus_B_size;
   int A_intersect_B_size = A_size - A_minus_B_size;
   int B_minus_A_size = B_size - A_intersect_B_size;
-  int universe = config.at("universe");
-  if (universe < A_union_B_size) {
-    cout << "Warning: universe size is less than A_union_B_size. Reset to A_union_B_size." << endl;
-    universe = A_union_B_size;
-  }
 
   int k = config.at("k");
   int d = config.at("d");
@@ -458,10 +453,10 @@ int main(int argc, char* argv[]) {
   auto [finger_s, finger_l] = signature_length(A_minus_B_size, B_minus_A_size, failure_rate);
   double finger_beta = static_cast<double>(B_minus_A_size) / finger_s;
   println("Use the following signature lengths: s = {}, l = {}, beta = {}.", finger_s, finger_l, finger_beta);
-  assert(finger_s > 0 && finger_l >= 0 and finger_l < 32);
+  assert(finger_s > 0 && finger_l >= 0 and finger_l < 64);
   WYHash finger_hash(/*mask*/ 0, /*mode*/ finger_s, /*seed*/ rng());
-  unsigned int mask2 = (1 << finger_l) - 1;
-  WYHash resolving_hash(mask2, /*mode*/ 0, /*seed*/ rng());
+  unsigned int mask2 = (1 << (finger_l % 32)) - 1;
+  WYHash resolving_hash(mask2, /*mode*/ 0, /*seed*/ rng(), /*seed2*/ rng(), /*mode64*/ finger_l >= 32);
 
   Status status = Status::CollisionAvoiding;
   DecodeConfig dconf_alis(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ -1, /*ub*/ 0, max_num_peels, PursuitChoice::L2),
