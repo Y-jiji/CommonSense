@@ -38,7 +38,7 @@ using namespace boost::math;
 enum class Party { Alis = 0, Bela = 1 };
 enum class Status { CollisionAvoiding = 0, CollisionResolving = 1, Finished = 2 };
 using CounterType = int16_t;
-using IndexType = VeryLargeInt<64>;
+using IndexType = VeryLargeInt<256>;
 using DoroCodeType = DoroCode<IndexType, CounterType>;
 
 // The following constants are used for parameter tuning
@@ -512,7 +512,7 @@ int main(int argc, char* argv[]) {
     unordered_map<int8_t, double> finger_pmf = { {0, 1.0 - actual_load}, {1, actual_load} };
     RansWrapper<int8_t, double> finger_rans(finger_pmf);
     double finger_cost = 0;
-    if (new_extra_size > 1 && finger_s > 1) {
+    if (new_extra_size >= 1 && finger_s > 1) {
       RansCode compressed_fingers = finger_rans.encode(fingerprints_delta);
       finger_cost = compressed_fingers.size() + 32; // 4 bytes to transmit actual load.
       auto decompressed_fingers = finger_rans.decode(compressed_fingers);
