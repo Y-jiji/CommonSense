@@ -1,0 +1,22 @@
+{
+  "script": [
+    "ROOT/build/bin/doro",
+    "JSON"
+  ],
+  "root path": "/media/gtnetuser/Dell/CDMA",
+  "max process": 30,
+  "seed": 2845347721,
+  "A size": 100000,
+  "B size": 
+    110000,
+  "A minus B size": 0,
+  "k": 5,
+  "d": 55000,
+  "max num peels": 1000000000,
+  "max rounds": 1000,
+  "max comm rounds": 1,
+  "counting": true,
+  "result filename": "l1comp.json",
+  "resolving round": -1,
+  "debug": true
+}

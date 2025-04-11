@@ -1,0 +1,38 @@
+{
+    "script": [
+      "ROOT/build/bin/two_party_iblt",
+      "JSON"
+    ],
+    "root path": "/media/gtnetuser/Dell/CDMA",
+    "max process": 12,
+    "file name": [
+        "ITER_FILE", 
+        "ROOT/result/two_side_quantize2/as1010000_bs1010000_sd*.json"
+    ],
+    "seed": [
+      "ITER_EXTRACT",
+      "file name", "sd"
+    ],
+    "A size": [
+      "ITER_ALL",
+      1000100,
+      1001000,
+      1003000,
+      1010000
+    ],
+    "B size": [
+      "ITER_WITH",
+      "A size",
+      {
+        "1010000": [
+          1010000,
+          1030000,
+          1100000,
+          1300000
+        ],
+        "DEFAULT": 1010000
+      }
+    ],
+    "A minus B size": ["EVAL", "${A size} - 1000000"],
+    "result filename": "ROOT/result/two_side_quantize2_iblt_separate_AB/as{A size}_bs{B size}_sd{seed}.json"
+}
