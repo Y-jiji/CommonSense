@@ -4,7 +4,7 @@
 
 cmake_minimum_required(VERSION 3.16...3.27)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-include(tianji_dedup NO_POLICY_SCOPE)
+include(tianji NO_POLICY_SCOPE)
 
 # -- Your project name here
 
@@ -37,9 +37,8 @@ endif()
 # -- Process Main Library & Unit Tests
 
 AutoBuild(
-    LIB_DIR "lib" NONE
-		BIN_DIR "lib"
-		TARGET_SRC "bin/two_party.cpp"
+    LIB_DIR "doro" STATIC
+    BIN_DIR "bin"
 )
 
 # -- Manage Third Party Dependencies
@@ -124,7 +123,7 @@ Git(
 )
 
 Git(
-    SITE    "https://github.com"
+    SITE    "git@github.com"
     USER    "Jeffery-Meng"
     REPO    "IBLT-opt"
     BRANCH  "master"

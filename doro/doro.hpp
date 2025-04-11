@@ -103,17 +103,30 @@ public:
     for (auto [index, sign] : all_hashes) {
       signals.push_back(sign * arr_[index]);
     }
+    ArrType median = get_median(element);
+    double old_l1 = std::accumulate(signals.begin(), signals.end(), 0.0, [](double x, ArrType& y){return x + std::abs(y);});
+    double new_l1 = std::accumulate(signals.begin(), signals.end(), 0.0, [median](double x, ArrType& y){return x + std::abs(y - median);});
+    return old_l1 - new_l1;
+  }
+
+  ArrType get_median(IndexType element) const {
+    std::vector<ArrType> signals;
+    auto all_hashes = hash_all(element);
+    for (auto [index, sign] : all_hashes) {
+      signals.push_back(sign * arr_[index]);
+    }
+    ArrType median = 0.0;
     auto med_iter = signals.begin() + k_ / 2;
     std::nth_element(signals.begin(), med_iter, signals.end());
     if (k_ % 2 == 0) {
       auto med_iter2 = med_iter - 1;
       std::nth_element(signals.begin(), med_iter2, med_iter);
       if (*med_iter * (*med_iter2) < 0)
-        return 0;
+      median = 0;
       else if (std::abs(*med_iter) > std::abs(*med_iter2))
-        return *med_iter2;
-    }
-    return *med_iter;
+      median = *med_iter2;
+    } else median = *med_iter;
+    return median;
   }
 
   int nonzero_num() const {

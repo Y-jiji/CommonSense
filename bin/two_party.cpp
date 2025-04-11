@@ -52,10 +52,13 @@ constexpr int iblt_cell_size = sizeof(IndexType) * 8 + 32; // 32 key-check bits.
 
 // get the current decoding status and error counts.
 // every key in result is regarded as valid as long as value is not 0.
-bool get_sizes(const std::unordered_map<IndexType, CounterType>& result1,
+bool get_sizes(
+  const std::unordered_map<IndexType, CounterType>& result1,
   const std::unordered_map<IndexType, CounterType>& result2,
-  const std::unordered_set<IndexType>& setA_minus_B, const std::unordered_set<IndexType>& setB_minus_A,
-  json& config, const DoroCodeType& doro) {
+  const std::unordered_set<IndexType>& setA_minus_B, 
+  const std::unordered_set<IndexType>& setB_minus_A,
+  json& config, const DoroCodeType& doro
+) {
   size_t A_minus_B_remaining_size = setA_minus_B.size(), B_minus_A_remaining_size = setB_minus_A.size(),
     A_intersect_B_remaining_size = 0;
   bool debug_flag = config.contains("debug") && config.at("debug");
@@ -324,6 +327,8 @@ int main(int argc, char* argv[]) {
   if (config.contains("max recenter rounds")) max_recenter_rounds = config.at("max recenter rounds");
   int max_num_peels = -1;
   if (config.contains("max num peels")) max_num_peels = config.at("max num peels");
+  bool force_pursue_l1 = false;
+  if (config.contains("force pursue l1")) force_pursue_l1 = config.at("force pursue l1");
 
   if (config.contains("skip if exists")) skip_if_exists = config.at("skip if exists");
   if (skip_if_exists && filesystem::exists(save_path)) {
@@ -338,7 +343,7 @@ int main(int argc, char* argv[]) {
 
   mt19937 rng(seed);
   auto rand_vec = random_nonrepetitive<IndexType>(A_union_B_size, rng);
-  std::shuffle(rand_vec.begin(), rand_vec.end(), rng);
+  // std::shuffle(rand_vec.begin(), rand_vec.end(), rng);
   // set A is [0, A_size), and set B is [A_minus_B_size, A_union_B_size)
   unordered_set<IndexType> setA(rand_vec.begin(), rand_vec.begin() + A_size);
   unordered_set<IndexType> setB(rand_vec.begin() + A_minus_B_size, rand_vec.end());
@@ -463,6 +468,10 @@ int main(int argc, char* argv[]) {
     dconf_bela(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, max_num_peels, PursuitChoice::L2);
   if (A_minus_B_size == 0) dconf_alis.lb = 0;
   if (B_minus_A_size == 0) dconf_bela.ub = 0;
+  if (force_pursue_l1) {
+    dconf_alis.pursuit_choice = PursuitChoice::L1;
+    dconf_bela.pursuit_choice = PursuitChoice::L1;
+  }
   DoroDecoder<DoroCodeType> decoder_alis(doro, setA, dconf_alis, max_recenter_rounds, &finger_hash, &resolving_hash),
     decoder_bela(doro, setB, dconf_bela, max_recenter_rounds, &finger_hash, &resolving_hash);
   StopWatch sw;

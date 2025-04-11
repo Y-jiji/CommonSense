@@ -23,7 +23,7 @@ namespace Doro {
 
 enum class PursuitChoice {
   L1,
-  L2
+  L2,
 };
 struct DecodeConfig {
   int ta; // terminate if any element thrashes for ta times.
@@ -345,7 +345,7 @@ private:
     auto cur_iter = result_.find(element);
     ArrType cur_element_value = (cur_iter != result_.end()) ? cur_iter->second : 0;
     // In L2, delta is computed from average instead of sum
-    double normalized_strength = is_l2 ? static_cast<double>(strength) / static_cast<double>(code_->k()) : strength;
+    double normalized_strength = is_l2 ? static_cast<double>(strength) / static_cast<double>(code_->k()) : code_->get_median(element);
     return get_delta(normalized_strength, cur_element_value);
   }
 
