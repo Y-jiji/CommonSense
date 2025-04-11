@@ -13,21 +13,24 @@
 #include "IBLT-opt/iblt.h"
 
 #include <algorithm>
+#include <array>
 #include <bitset>
+#include <boost/math/distributions/binomial.hpp>
 #include <cmath>
 #include <filesystem>
-#include <fstream>
 #include <format>
+#include <fstream>
 #include <iostream>
 #include <print>
 #include <random>
 #include <ranges>
+#include <stdint.h>
 #include <string>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
-
-#include <boost/math/distributions/binomial.hpp>
+#include <vector>
+#include "load_file.hpp"
 
 using namespace std;
 using namespace Doro;
@@ -48,7 +51,7 @@ constexpr double diff_coding_error_final = 1e-6;
 constexpr double bch_block_error_rate = 0.01;
 constexpr int iblt_element_margin = 100;
 constexpr double iblt_element_factor = 1.25;
-constexpr int iblt_cell_size = sizeof(IndexType) * 8 + 32; // 32 key-check bits.
+constexpr int iblt_cell_size = 32 * 8 + 32; // 32 key-check bits.
 
 int main(int argc, char* argv[]) {
   if (argc < 2) {
@@ -72,38 +75,15 @@ int main(int argc, char* argv[]) {
 
   // a helper function to convert value from bitvector to bitset
   auto to_bit_set = [](const std::vector<uint8_t>& bv) {
-    IndexType result;
+    IndexType result((std::bitset<256>()));
     std::memcpy(&result, bv.data(), bv.size());
     return result;
   };
 
   // Generate a vector
   // [  A (] B  )
-  int A_size = config.at("A size");
-  int B_size = config.at("B size");
-  int A_minus_B_size = A_size - B_size;
-  if (config.contains("A minus B size")) A_minus_B_size = config.at("A minus B size");
-  int A_minus_B_size_minimum = std::max(0, A_size - B_size);
-  if (A_minus_B_size < A_minus_B_size_minimum) {
-    cout << "Warning: A_minus_B_size is too small. Reset to minimum possible value." << endl;
-    A_minus_B_size = A_minus_B_size_minimum;
-  }
-  if (A_minus_B_size > A_size) {
-    cout << "Warning: A_minus_B_size is larger than A_size. Reset to A_size." << endl;
-    A_minus_B_size = A_size;
-  }
-  int A_union_B_size = B_size + A_minus_B_size;
-  int A_intersect_B_size = A_size - A_minus_B_size;
-  int B_minus_A_size = B_size - A_intersect_B_size;
-
-  mt19937 rng(seed);
-  auto rand_vec = random_nonrepetitive<IndexType>(A_union_B_size, rng);
-
-  // Extract A, B, A - B, B - A
-  unordered_set<IndexType> setA(rand_vec.begin(), rand_vec.begin() + A_size);
-  unordered_set<IndexType> setB(rand_vec.begin() + A_minus_B_size, rand_vec.end());
-  unordered_set<IndexType> setA_minus_B(rand_vec.begin(), rand_vec.begin() + A_minus_B_size);
-  unordered_set<IndexType> setB_minus_A(rand_vec.begin() + A_size, rand_vec.end());
+  auto [setA, setB, setA_minus_B, setB_minus_A, A_minus_B_size, B_minus_A_size,
+        A_intersect_B_size] = load_dataset(config);
 
   //                   //
   // Set Reconcilation //
