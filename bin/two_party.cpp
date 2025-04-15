@@ -10,7 +10,7 @@
 #include "libONIAK/oniakRandom/orand.h"
 #include "libONIAK/oniakTimer/otime.h"
 #include "nlohmann/json.hpp"
-#include "IBLT-opt/iblt.h"
+#include <doro/iblt.h>
 #include "load_file.hpp"
 
 #include <algorithm>

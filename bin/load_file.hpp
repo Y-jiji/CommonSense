@@ -15,7 +15,8 @@ using namespace std;
 
 std::bitset<256> stokey(const std::string &str) {
   std::array<unsigned char, 32> key;
-  for (size_t i = 2; i < str.size(); i += 2) {
+  // skip '0x'
+  for (size_t i = 2; i < 34; i += 2) {
     unsigned char a = str[i];
     unsigned char b = str[i];
     if (a >= '0' && a <= '9') {
@@ -28,7 +29,7 @@ std::bitset<256> stokey(const std::string &str) {
     } else {
       b -= 'a';
     }
-    key[i] = (a << 4) | b;
+    key[i - 2] = (a << 4) | b;
   }
   std::bitset<256> key_bitset;
   for (size_t i = 0; i < 32; ++i) {

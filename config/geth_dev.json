@@ -1,0 +1,11 @@
+{
+  "root path": "/media/gtnetuser/Dell/CDMA",
+  "seed": 43,
+  "k": 5,
+  "d": 2167029,
+  "counting": true,
+  "A path": "geth/state-a-dev.txt",
+  "B path": "geth/state-b-dev.txt",
+  "Intersect path": "geth/state-intersect-dev.txt",
+  "result filename": "result/geth.json"
+}

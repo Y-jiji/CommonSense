@@ -10,8 +10,8 @@
 #include "libONIAK/oniakRandom/orand.h"
 #include "libONIAK/oniakTimer/otime.h"
 #include "nlohmann/json.hpp"
-#include "IBLT-opt/iblt.h"
 
+#include <doro/iblt.h>
 #include <algorithm>
 #include <array>
 #include <bitset>
@@ -29,6 +29,7 @@
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
+#include <set>
 #include <vector>
 #include "load_file.hpp"
 
@@ -145,6 +146,14 @@ int main(int argc, char* argv[]) {
     std::cout << "A in B\\A: " << count_x_in_y(setA, setB_minus_A) << std::endl;
     std::cout << "B in A\\B: " << count_x_in_y(setB, setA_minus_B) << std::endl;
     std::cout << "B in B\\A: " << count_x_in_y(setB, setB_minus_A) << std::endl;
+    //    std::cout << "SET A" << std::endl;
+    //    for (auto x: std::set(setA.begin(), setA.end())) {
+    //	std::cout << "\t" << x << std::endl;
+    //    }
+    //    std::cout << "SET B" << std::endl;
+    //    for (auto x: std::set(setB.begin(), setB.end())) {
+    //	std::cout << "\t" << x << std::endl;
+    //    }
     println("failure");
   }
   cout << "iblt total cost a to b " << transmitted_size_A_to_B << std::endl;

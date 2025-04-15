@@ -1,11 +1,11 @@
 #pragma once
 
-#include "doro.hpp"
 #include "libONIAK/oniakDataStructure/oupq.h"
 #include "libONIAK/oniakHash/ohash.h"
 #include "libONIAK/oniakMath/orange.h"
-#include "IBLT-opt/iblt.h"
 
+#include <doro/doro.hpp>
+#include <doro/iblt.h>
 #include <algorithm>
 #include <cassert>
 #include <cstring>
