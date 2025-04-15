@@ -119,7 +119,12 @@
     "expected": "cpp",
     "generator": "cpp",
     "spanstream": "cpp",
-    "stacktrace": "cpp"
+    "stacktrace": "cpp",
+    "fft": "cpp",
+    "nonlinearoptimization": "cpp",
+    "*.def": "cpp",
+    "dense_hash_map": "cpp",
+    "sparse_hash_map": "cpp"
   },
   "C_Cpp.errorSquiggles": "enabled",
   "cmake.debugConfig": {
