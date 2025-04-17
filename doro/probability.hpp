@@ -214,19 +214,20 @@ double convex_argmax(F f, double lb, double ub, double epsilon = 1e-6) {
 }
 
 // average load per fingerprint bucket is |A/B| * |B/A| / |C|^2, which is alpha * beta^2
-// however, the target epsilon per bucker is epsilon * beta. This cancels out one copy of beta.
-inline int finger_l_size(double alpha, double beta, double epsilon) {
+// the target epsilon per bucker is epsilon / |C|.
+// so load / epsilon per bucker = |A/B| /|C| * |B/A| / epsilon = alpha * beta * b / epsilon
+inline int finger_l_size(double alpha, double beta, double epsilon, double b) {
   if (alpha < 1e-30 || alpha > 1e30) return 0;
-  return std::ceil(-std::log2(epsilon) + std::log2(alpha) + std::log2(beta));
+  return std::ceil(-std::log2(epsilon) + std::log2(alpha) + std::log2(beta) + std::log2(b));
 }
 
-// alpha is |A/B| / |B/A|, beta is |B/A| / |C|
+// alpha is |A/B| / |B/A|, beta is |B/A| / |C|, b is |B/A|
 inline double loss_func(double alpha, double beta, double b, double epsilon) {
   double first_nonzero_prob = 1 - std::exp(-beta);
   double entropy_first = entropy(first_nonzero_prob);
   double second_nonzero_prob = 1 - std::exp(-alpha * beta);
   double entropy_second = entropy(second_nonzero_prob * first_nonzero_prob);
-  double recon_cost = alpha * beta * first_nonzero_prob * (finger_l_size(alpha, beta, epsilon) + log2_ceil(b / beta));
+  double recon_cost = beta * (alpha * first_nonzero_prob + second_nonzero_prob) * (finger_l_size(alpha, beta, epsilon, b) + log2_ceil(b / beta));
   // std::cout << "entropy_first: " << entropy_first/beta << ", entropy_second: " << entropy_second/beta << ", recon_cost: " << recon_cost/beta << std::endl;
   return (entropy_first + entropy_second + recon_cost) / beta;
 }

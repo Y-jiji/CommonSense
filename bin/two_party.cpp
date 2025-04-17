@@ -123,7 +123,7 @@ std::pair<int, int> signature_length(double A_minus_B_size, double B_minus_A_siz
     };
   double p = convex_argmax(lam, /*lb*/ 2.0, /*ub*/ 50.0, /*epsilon*/ 0.01);
   int finger_s = std::ceil(B_minus_A_size * p);
-  int finger_l = finger_l_size(alpha, 1.0 / p, failure_rate);
+  int finger_l = finger_l_size(alpha, 1.0 / p, failure_rate, finger_s);
   return { finger_s, finger_l };
 }
 
@@ -320,7 +320,7 @@ int main(int argc, char* argv[]) {
 
   // Skip this experiment if result already exists, used for batch experimenting.
   bool skip_if_exists = false;
-  double failure_rate = 1e-9;
+  double failure_rate = 1e-7;
   if (config.contains("failure rate")) failure_rate = config.at("failure rate");
   failure_rate /= B_minus_A_size; // from now on, we 
   int max_recenter_rounds = 100;
