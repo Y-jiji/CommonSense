@@ -1,6 +1,7 @@
 #include <doro/bch_wrapper.hpp>
-#include <doro/doro.hpp>
 #include <doro/decoder.hpp>
+#include <doro/doro.hpp>
+#include <doro/load_file.hpp>
 #include <doro/probability.hpp>
 #include <doro/rans_wrapper.hpp>
 
@@ -10,7 +11,7 @@
 #include "libONIAK/oniakRandom/orand.h"
 #include "libONIAK/oniakTimer/otime.h"
 #include "nlohmann/json.hpp"
-#include "IBLT-opt/iblt.h"
+#include <doro/iblt.h>
 
 #include <algorithm>
 #include <bitset>
@@ -284,22 +285,9 @@ int main(int argc, char* argv[]) {
   size_t seed = 0;
   if (config.contains("seed")) seed = config.at("seed");
 
-  int A_size = config.at("A size");
-  int B_size = config.at("B size");
-  int A_minus_B_size = A_size - B_size;
-  if (config.contains("A minus B size")) A_minus_B_size = config.at("A minus B size");
-  int A_minus_B_size_minimum = std::max(0, A_size - B_size);
-  if (A_minus_B_size < A_minus_B_size_minimum) {
-    cout << "Warning: A_minus_B_size is too small. Reset to minimum possible value." << endl;
-    A_minus_B_size = A_minus_B_size_minimum;
-  }
-  if (A_minus_B_size > A_size) {
-    cout << "Warning: A_minus_B_size is larger than A_size. Reset to A_size." << endl;
-    A_minus_B_size = A_size;
-  }
-  int A_union_B_size = B_size + A_minus_B_size;
-  int A_intersect_B_size = A_size - A_minus_B_size;
-  int B_minus_A_size = B_size - A_intersect_B_size;
+  auto [setA, setB, setA_minus_B, setB_minus_A, A_minus_B_size, B_minus_A_size, A_intersect_B_size] = load_dataset(config);
+  auto A_size = setA.size();
+  auto B_size = setB.size();
 
   int k = config.at("k");
   int d = config.at("d");
@@ -341,14 +329,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  mt19937 rng(seed);
-  auto rand_vec = random_nonrepetitive<IndexType>(A_union_B_size, rng);
-  // std::shuffle(rand_vec.begin(), rand_vec.end(), rng);
-  // set A is [0, A_size), and set B is [A_minus_B_size, A_union_B_size)
-  unordered_set<IndexType> setA(rand_vec.begin(), rand_vec.begin() + A_size);
-  unordered_set<IndexType> setB(rand_vec.begin() + A_minus_B_size, rand_vec.end());
-  unordered_set<IndexType> setA_minus_B(rand_vec.begin(), rand_vec.begin() + A_minus_B_size);
-  unordered_set<IndexType> setB_minus_A(rand_vec.begin() + A_size, rand_vec.end());
+  auto rng = std::mt19937(seed);
 
   auto auto_parameter = doro_parameter_tuning(d, k, A_minus_B_size, B_minus_A_size, bch_cap, diff_coding_error);
   cout << "Automatically selected the following parameters: " << endl;
@@ -358,10 +339,10 @@ int main(int argc, char* argv[]) {
   // copy to keep the same set of hash functions
   auto first_round_code = doro;
   unordered_map<IndexType, CounterType> Bela_coef, Alis_coef;
-  for (auto& i : rand_vec | views::take(A_size)) {
+  for (auto& i : setA) {
     Alis_coef[i] = 1;
   }
-  for (auto& i : rand_vec | views::drop(A_minus_B_size)) {
+  for (auto& i : setB) {
     Bela_coef[i] = 1;  // in Bela
   }
   first_round_code.encode(Alis_coef);

@@ -37,7 +37,7 @@ endif()
 # -- Process Main Library & Unit Tests
 
 AutoBuild(
-    LIB_DIR "doro" STATIC
+    LIB_DIR "lib" STATIC
     BIN_DIR "bin"
 )
 
@@ -91,13 +91,6 @@ Git(
     PIPELINE "INCLUDE" PUBLIC
     INCLUDE_DIR "${CMAKE_BINARY_DIR}/3rd_party_download/wangyi-fudan"
 )
-# Git(
-#     SITE      "git@github.gatech.edu"
-#     USER      "jx9"
-#     REPO      "libONIAK"
-#     BRANCH    "main"
-#     PIPELINE "CMAKE INSTALL" PUBLIC HEADER_ONLY
-# )
 Git(
     SITE   "git@github.com"
     USER    "Jeffery-Meng"
@@ -120,16 +113,6 @@ Git(
     BRANCH  "master"
     PIPELINE "INCLUDE" PUBLIC
     INCLUDE_DIR "${CMAKE_BINARY_DIR}/3rd_party_download/Ten0"
-)
-
-Git(
-    SITE    "git@github.com"
-    USER    "Jeffery-Meng"
-    REPO    "IBLT-opt"
-    BRANCH  "master"
-		TARGET  "pyblt"
-    PIPELINE "MAKE FLAT INSTALL" PUBLIC
-    INCLUDE_DIR "${CMAKE_BINARY_DIR}/3rd_party_download/Jeffery-Meng"
 )
 
 message(STATUS "ONIAKLIB Path: $ENV{ONIAKLIB}")

@@ -1,6 +1,7 @@
+#include <doro/load_file.hpp>
 #include <doro/bch_wrapper.hpp>
-#include <doro/doro.hpp>
 #include <doro/decoder.hpp>
+#include <doro/doro.hpp>
 #include <doro/probability.hpp>
 #include <doro/rans_wrapper.hpp>
 
@@ -10,24 +11,27 @@
 #include "libONIAK/oniakRandom/orand.h"
 #include "libONIAK/oniakTimer/otime.h"
 #include "nlohmann/json.hpp"
-#include "IBLT-opt/iblt.h"
 
+#include <doro/iblt.h>
 #include <algorithm>
+#include <array>
 #include <bitset>
+#include <boost/math/distributions/binomial.hpp>
 #include <cmath>
 #include <filesystem>
-#include <fstream>
 #include <format>
+#include <fstream>
 #include <iostream>
 #include <print>
 #include <random>
 #include <ranges>
+#include <stdint.h>
 #include <string>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
-
-#include <boost/math/distributions/binomial.hpp>
+#include <set>
+#include <vector>
 
 using namespace std;
 using namespace Doro;
@@ -48,7 +52,7 @@ constexpr double diff_coding_error_final = 1e-6;
 constexpr double bch_block_error_rate = 0.01;
 constexpr int iblt_element_margin = 100;
 constexpr double iblt_element_factor = 1.25;
-constexpr int iblt_cell_size = sizeof(IndexType) * 8 + 32; // 32 key-check bits.
+constexpr int iblt_cell_size = 32 * 8 + 32; // 32 key-check bits.
 
 int main(int argc, char* argv[]) {
   if (argc < 2) {
@@ -72,72 +76,112 @@ int main(int argc, char* argv[]) {
 
   // a helper function to convert value from bitvector to bitset
   auto to_bit_set = [](const std::vector<uint8_t>& bv) {
-    IndexType result;
+    IndexType result((std::bitset<256>()));
     std::memcpy(&result, bv.data(), bv.size());
     return result;
   };
 
   // Generate a vector
   // [  A (] B  )
-  int A_size = config.at("A size");
-  int B_size = config.at("B size");
-  int A_minus_B_size = A_size - B_size;
-  if (config.contains("A minus B size")) A_minus_B_size = config.at("A minus B size");
-  int A_minus_B_size_minimum = std::max(0, A_size - B_size);
-  if (A_minus_B_size < A_minus_B_size_minimum) {
-    cout << "Warning: A_minus_B_size is too small. Reset to minimum possible value." << endl;
-    A_minus_B_size = A_minus_B_size_minimum;
+  auto [setA, setB, setA_minus_B, setB_minus_A, A_minus_B_size, B_minus_A_size,
+        A_intersect_B_size] = load_dataset(config);
+  std::cout << "A minus B: " << A_minus_B_size << std::endl;
+  for (auto x: setA_minus_B) {
+    std::cout << x << std::endl;
   }
-  if (A_minus_B_size > A_size) {
-    cout << "Warning: A_minus_B_size is larger than A_size. Reset to A_size." << endl;
-    A_minus_B_size = A_size;
+  std::cout << "B minus A: " << B_minus_A_size << std::endl;
+  for (auto x: setB_minus_A) {
+    std::cout << x << std::endl;
   }
-  int A_union_B_size = B_size + A_minus_B_size;
-  int A_intersect_B_size = A_size - A_minus_B_size;
-  int B_minus_A_size = B_size - A_intersect_B_size;
-
-  mt19937 rng(seed);
-  auto rand_vec = random_nonrepetitive<IndexType>(A_union_B_size, rng);
-
-  // Extract A, B, A - B, B - A
-  unordered_set<IndexType> setA(rand_vec.begin(), rand_vec.begin() + A_size);
-  unordered_set<IndexType> setB(rand_vec.begin() + A_minus_B_size, rand_vec.end());
-  unordered_set<IndexType> setA_minus_B(rand_vec.begin(), rand_vec.begin() + A_minus_B_size);
-  unordered_set<IndexType> setB_minus_A(rand_vec.begin() + A_size, rand_vec.end());
 
   //                   //
   // Set Reconcilation //
   //                   //
   int round = 0;
-  // compute IBLT for A and B
-  IBLT setA_IBLT((B_minus_A_size + A_minus_B_size), sizeof(IndexType));
-  for (auto a: setA) {
-    setA_IBLT.insert(static_cast<uint64_t>(a), to_binary_vector(a));
+  int transmitted_size_A_to_B = 0;
+  int transmitted_size_B_to_A = 0;
+
+  while (true) {
+    // stop flag
+    bool stop = true;
+    // compute IBLT for A and B
+    IBLT setA_IBLT((B_minus_A_size + A_minus_B_size), sizeof(IndexType));
+    std::cout << "BUILD IBLT FOR A" << std::endl;
+    for (auto a: setA) {
+      setA_IBLT.insert(a, to_binary_vector(a));
+    }
+    std::cout << "BUILD IBLT FOR B" << std::endl;
+    IBLT setB_IBLT((B_minus_A_size + A_minus_B_size), sizeof(IndexType));
+    for (auto b: setB) {
+      setB_IBLT.insert(b, to_binary_vector(b));
+    }
+    // patch B with A's iblt
+    auto setA_minus_B_IBLT = setA_IBLT - setB_IBLT;
+    std::cout << "BUILD DIFFERENCE" << std::endl;
+    auto A_minus_B_IBLT_estimated = std::set<std::pair<std::vector<uint8_t>, std::vector<uint8_t>>>();
+    auto B_minus_A_IBLT_estimated = std::set<std::pair<std::vector<uint8_t>, std::vector<uint8_t>>>();
+    std::cout << "LIST ENTRIES" << std::endl;
+    auto ok = setA_minus_B_IBLT.listEntries(A_minus_B_IBLT_estimated, B_minus_A_IBLT_estimated, &setA_minus_B, &setB_minus_A);
+    if (!ok) {
+      std::cout << "DECODING FAILURE!" << std::endl;
+      exit(-1);
+    }
+    std::cout << "REMOVING DELTA" << std::endl;
+    std::cout << "A minus B decoded: " << A_minus_B_IBLT_estimated.size() << std::endl;
+    for (auto [key, value]: A_minus_B_IBLT_estimated) {
+      if (!setA.contains(to_bit_set(value))) {
+        std::cout << "KEY in decoded A minus B not in setA" << std::endl;
+        std::cout << to_bit_set(value) << std::endl;
+        if (setB.contains(to_bit_set(value))) {
+          std::cout << "It is in B" << std::endl;
+        }
+      }
+      std::cout << to_bit_set(value) << std::endl;
+      setA.erase(to_bit_set(value));
+      stop = false;
+    }
+    std::cout << "REST: " << std::endl;
+    for (auto x: setA) {
+      if (!setA_minus_B.contains(x)) continue;
+      std::cout << x << std::endl;
+    }
+    std::cout << "B minus A decoded: " << B_minus_A_IBLT_estimated.size() << std::endl;
+    for (auto [key, value]: B_minus_A_IBLT_estimated) {
+      if (!setB.contains(to_bit_set(value))) {
+        std::cout << "KEY in B minus A not in setB" << std::endl;
+        std::cout << to_bit_set(value) << std::endl;
+        if (setA.contains(to_bit_set(value))) {
+          std::cout << "It is in A" << std::endl;
+        }
+      }
+      std::cout << to_bit_set(value) << std::endl;
+      setB.erase(to_bit_set(value));
+      stop = false;
+    }
+    std::cout << "REST: " << std::endl;
+    for (auto x: setB) {
+      if (!setB_minus_A.contains(x)) continue;
+      std::cout << x << std::endl;
+    }
+    if (stop) {
+      std::cout << "STOP" << std::endl;
+      break;
+    }
+    break;
+    // add to transmitted size
+    transmitted_size_A_to_B += 
+      setA_IBLT.hashTableSize() * iblt_cell_size;
+    transmitted_size_B_to_A += 
+      accumulate(B_minus_A_IBLT_estimated.begin(), B_minus_A_IBLT_estimated.end(), 0, 
+      [](size_t sum, const auto& vec) { 
+        // reducing on iblt transmitted size
+        return sum + 256 + vec.second.size(); 
+      });
+    std::cout << "ROUND " << round << std::endl;
+    std::cout << "A -> B: " << transmitted_size_A_to_B << std::endl;
+    std::cout << "B -> A: " << transmitted_size_B_to_A << std::endl;
+    round++;
   }
-  IBLT setB_IBLT((B_minus_A_size + A_minus_B_size), sizeof(IndexType));
-  for (auto b: setB) {
-    setB_IBLT.insert(static_cast<uint64_t>(b), to_binary_vector(b));
-  }
-  // patch B with A's iblt
-  auto setA_minus_B_IBLT = setA_IBLT - setB_IBLT;
-  auto A_minus_B_IBLT_estimated = std::set<std::pair<uint64_t, std::vector<uint8_t>>>();
-  auto B_minus_A_IBLT_estimated = std::set<std::pair<uint64_t, std::vector<uint8_t>>>();
-  setA_minus_B_IBLT.listEntries(A_minus_B_IBLT_estimated, B_minus_A_IBLT_estimated);
-  for (auto [key, value]: A_minus_B_IBLT_estimated) {
-    setA.erase(to_bit_set(value));
-  }
-  for (auto [key, value]: B_minus_A_IBLT_estimated) {
-    setB.erase(to_bit_set(value));
-  }
-  // add to transmitted size
-  int transmitted_size_A_to_B = 
-    setA_IBLT.hashTableSize() * iblt_cell_size;
-  int transmitted_size_B_to_A = 
-    accumulate(B_minus_A_IBLT_estimated.begin(), B_minus_A_IBLT_estimated.end(), 0, 
-    [](size_t sum, const auto& vec) { 
-      // reducing on iblt transmitted size
-      return sum + sizeof(std::pair<uint64_t, std::vector<uint8_t>>) + vec.second.size(); 
-    });
 
   //                 //
   // Validate Result //
