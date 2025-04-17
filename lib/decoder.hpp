@@ -58,7 +58,7 @@ namespace Doro {
         using IndexType = typename DoroCodeT::IndexT;
         using TwoDimVector = std::vector<std::vector<IndexType>>;
         using UpdatePQ = ONIAK::UpdatePQAdapter<IndexType, ArrType, backend>::type;
-        using IBLTResultType = std::pair<uint64_t, std::vector<uint8_t> >;
+        using IBLTResultType = std::pair<std::vector<uint8_t>, std::vector<uint8_t> >;
 
         DoroDecoder(DoroCodeT& code, const std::unordered_set<IndexType>& setA, DecodeConfig& config, int max_recenter_rounds = 10,
             ONIAK::WYHash* finger_hash = nullptr, ONIAK::WYHash* resolving_hash = nullptr) :
@@ -246,7 +246,7 @@ namespace Doro {
             // compute difference iblt
             for (const IndexType& element : *setA_) {
                 if (!(result_.contains(element) && result_.at(element) != 0)) {
-                    iblt.erase(static_cast<uint64_t>(element), to_binary_vector(element));
+                    iblt.erase(element, to_binary_vector(element));
                 }
             }
             std::set<IBLTResultType> positive, negative;

@@ -1,11 +1,14 @@
-#ifndef IBLT_H
-#define IBLT_H
+#pragma once
 
 #include <inttypes.h>
 #include <set>
 #include <vector>
 #include <fstream>
-#include <unordered_map>
+#include <unordered_set>
+#include <optional>
+#include "libONIAK/oniakMath/overylarge.h"
+#include <doro/key_types.hpp>
+
 //
 // Invertible Bloom Lookup Table implementation
 // References:
@@ -21,10 +24,10 @@
 class IBLTHashTableEntry
 {
 public:
-    int32_t count;
-    uint64_t keySum;
-    uint32_t keyCheck;
-    std::vector<uint8_t> valueSum;
+    int64_t  count = 0;
+    IndexType keySum;
+    uint64_t keyCheck = 0;
+    std::vector<uint8_t> valueSum{};
 
     bool isPure() const;
     bool empty() const;
@@ -35,38 +38,31 @@ class IBLT
 {
 public:
 
-    IBLT(size_t _expectedNumEntries, size_t _ValueSize, float hedge = 1.36, size_t _numHashes = 4);
+    IBLT(size_t _expectedNumEntries, size_t _ValueSize, float hedge = 4.0, size_t _numHashes = 4);
     IBLT(const IBLT& other);
     virtual ~IBLT();
 
-    void insert(uint64_t k, const std::vector<uint8_t> v);
-    void erase(uint64_t k, const std::vector<uint8_t> v);
+    void insert(const IndexType& k, const std::vector<uint8_t> v);
+    void erase(const IndexType& k, const std::vector<uint8_t> v);
 
-    bool get(uint64_t k, std::vector<uint8_t>& result) const;
-
-    bool listEntries(std::set<std::pair<uint64_t,std::vector<uint8_t> > >& positive,
-        std::set<std::pair<uint64_t,std::vector<uint8_t> > >& negative) const;
+    bool listEntries(
+        std::set<std::pair<std::vector<uint8_t>, std::vector<uint8_t>>>& positive,
+        std::set<std::pair<std::vector<uint8_t>, std::vector<uint8_t>>>& negative,
+        const std::unordered_set<IndexType>*   positive_supset = nullptr,
+        const std::unordered_set<IndexType>*   negative_supset = nullptr
+    ) const;
 
     // Subtract two IBLTs
     IBLT operator-(const IBLT& other) const;
-
-    // For debugging:
-    std::string DumpTable() const;
-
-    std::string DumpEntry(size_t i) const;
 
     int hashTableSize();
 
     // these need to be public for python integration 
     size_t valueSize;
-    size_t numHashes;  
+    size_t numHashes;
 
 private:
-    void _insert(int plusOrMinus, uint64_t k, const std::vector<uint8_t> v);
-    
-    static std::string parameter_file; 
+    void _insert(int plusOrMinus, const IndexType k, const std::vector<uint8_t> v);
 
     std::vector<IBLTHashTableEntry> hashTable;
 };
-
-#endif /* IBLT_H */

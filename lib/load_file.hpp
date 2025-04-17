@@ -1,3 +1,4 @@
+#pragma once
 #include "libONIAK/oniakMath/overylarge.h"
 #include "libONIAK/oniakRandom/orand.h"
 #include "nlohmann/json.hpp"
@@ -9,12 +10,12 @@
 #include <vector>
 #include <unordered_set>
 #include <random>
+#include <doro/key_types.hpp>
 
-using IndexType = ONIAK::VeryLargeInt<256>;
 using namespace std;
 
 std::bitset<256> stokey(const std::string &str) {
-  std::array<unsigned char, 32> key;
+  std::array<unsigned char, 32> key{0};
   // skip '0x'
   for (size_t i = 2; i < 34; i += 2) {
     unsigned char a = str[i];
@@ -34,7 +35,7 @@ std::bitset<256> stokey(const std::string &str) {
   std::bitset<256> key_bitset;
   for (size_t i = 0; i < 32; ++i) {
     for (size_t j = 0; j < 8; ++j) {
-      key_bitset[i * 8 + j] = (key[i] >> (7 - j)) & 1;
+      key_bitset.set(i * 8 + j, (key[i] >> (7 - j)) & 1);
     }
   }
   return key_bitset;
@@ -56,7 +57,6 @@ auto load_dataset(const nlohmann::json& config) {
       config.contains("Intersect path")) {
     auto vecA = load(config.at("A path"));
     auto setA = std::unordered_set<IndexType>(vecA.begin(), vecA.end());
-    load(config.at("A path"));
     auto vecB = load(config.at("B path"));
     auto setB = std::unordered_set<IndexType>(vecB.begin(), vecB.end());
     auto vecIntersect = load(config.at("Intersect path"));

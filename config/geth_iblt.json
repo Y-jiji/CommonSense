@@ -1,8 +1,8 @@
 {
   "root path": "/media/gtnetuser/Dell/CDMA",
   "seed": 43,
-  "A path": "geth/state-a.txt",
-  "B path": "geth/state-b.txt",
-  "Intersect path": "geth/state-intersect.txt",
+  "A path": "data/geth/state-a.txt",
+  "B path": "data/geth/state-b.txt",
+  "Intersect path": "data/geth/state-intersect.txt",
   "result filename": "result/geth_iblt.json"
 }

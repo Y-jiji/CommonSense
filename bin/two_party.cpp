@@ -1,6 +1,7 @@
 #include <doro/bch_wrapper.hpp>
-#include <doro/doro.hpp>
 #include <doro/decoder.hpp>
+#include <doro/doro.hpp>
+#include <doro/load_file.hpp>
 #include <doro/probability.hpp>
 #include <doro/rans_wrapper.hpp>
 
@@ -11,7 +12,6 @@
 #include "libONIAK/oniakTimer/otime.h"
 #include "nlohmann/json.hpp"
 #include <doro/iblt.h>
-#include "load_file.hpp"
 
 #include <algorithm>
 #include <bitset>

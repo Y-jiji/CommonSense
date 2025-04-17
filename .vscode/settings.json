@@ -124,7 +124,8 @@
     "nonlinearoptimization": "cpp",
     "*.def": "cpp",
     "dense_hash_map": "cpp",
-    "sparse_hash_map": "cpp"
+    "sparse_hash_map": "cpp",
+    "alignedvector3": "cpp"
   },
   "C_Cpp.errorSquiggles": "enabled",
   "cmake.debugConfig": {
