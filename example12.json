@@ -1,0 +1,113 @@
+{
+    "A intersect B remaining": [
+        287,
+        493,
+        263,
+        69,
+        5,
+        0
+    ],
+    "A minus B remaining": [
+        5000,
+        1065,
+        1065,
+        112,
+        112,
+        0
+    ],
+    "A minus B size": 5000,
+    "A size": 1000000,
+    "B minus A remaining": [
+        1829,
+        1829,
+        194,
+        194,
+        0,
+        0
+    ],
+    "B size": 1000000,
+    "comm costs": [
+        241081.0,
+        133778.0,
+        84994.0,
+        46450.0,
+        21266.0,
+        10130.0,
+        7297.0
+    ],
+    "communication rounds": 7,
+    "counting": true,
+    "d": 100000,
+    "debug": false,
+    "doro costs": [
+        241081.0,
+        108529.0,
+        55889.0,
+        32721.0,
+        12561.0,
+        5121.0,
+        97.0
+    ],
+    "finger costs": [
+        0,
+        25249.0,
+        29105.0,
+        13729.0,
+        8705.0,
+        2321.0,
+        1425.0
+    ],
+    "k": 5,
+    "max comm rounds": 10,
+    "max num peels": 1000000000,
+    "max process": 30,
+    "max rounds": 1000,
+    "num peels": [
+        3466,
+        7643,
+        9682,
+        10847,
+        11119,
+        11236
+    ],
+    "number of corrected errors": 354,
+    "number of failed blocks": 0,
+    "number of recenters": 0,
+    "resolving costs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        2688,
+        5775
+    ],
+    "result filename": "test.json",
+    "root path": "/media/mydrive/CDMA",
+    "round entering resolving": 4,
+    "script": [
+        "ROOT/build/bin/doro",
+        "JSON"
+    ],
+    "seed": 2845347721,
+    "success": true,
+    "theoretical entropy costs": [
+        149532.19137084935,
+        108030.5517514065,
+        55289.12374881205,
+        32433.9155296504,
+        12433.235299272363,
+        5029.489608623296,
+        -0.0
+    ],
+    "time": [
+        20.077012105,
+        41.914532317,
+        52.575602690000004,
+        61.65081482000001,
+        94.719555345,
+        127.079615458
+    ],
+    "total communication cost": 544996.0,
+    "total theoretical entropy cost": 362748.507308614
+}
