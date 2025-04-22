@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include <doro/sha256.hpp>
 #include <cstring>
+#define DEBUGPRINT
 
 template <typename IndexType>
 std::vector<uint8_t> to_binary_vector(const IndexType& x) {
@@ -69,10 +70,10 @@ void IBLT::_insert(int plusOrMinus, const IndexType key, const std::vector<uint8
         if (hashPositions.contains(h)) continue;
         hashPositions.insert(h);
         IBLTHashTableEntry& entry = hashTable.at(h);
-        std::cout << "POSITION: " << h << std::endl;
-        std::cout << "SIGN: " << plusOrMinus << std::endl;
-        std::cout << "INSERT KEY: " << key << std::endl;
-        std::cout << "INSERT KEY CHECK: " << HashWithSalt(to_binary_vector(key), N_HASHCHECK) << std::endl;
+        // DEBUGPRINT std::cout << "POSITION: " << h << std::endl;
+        // DEBUGPRINT std::cout << "SIGN: " << plusOrMinus << std::endl;
+        // DEBUGPRINT std::cout << "INSERT KEY: " << key << std::endl;
+        // DEBUGPRINT std::cout << "INSERT KEY CHECK: " << HashWithSalt(to_binary_vector(key), N_HASHCHECK) << std::endl;
         entry.count += plusOrMinus;
         entry.keySum ^= key;
         entry.keyCheck ^= HashWithSalt(to_binary_vector(key), N_HASHCHECK);
@@ -104,38 +105,38 @@ bool IBLT::listEntries(
         for (size_t i = 0; i < peeled.hashTable.size(); i++) {
             IBLTHashTableEntry& entry = peeled.hashTable.at(i);
             if (!entry.isPure()) { continue; }
-            std::cout << "POSIITON " << i << " IS PURE" << std::endl;
+            // DEBUGPRINT std::cout << "POSIITON " << i << " IS PURE" << std::endl;
             auto keySumVec = to_binary_vector(entry.keySum);
             if (entry.count == 1) {
                 positive.insert(std::make_pair(keySumVec, entry.valueSum));
-                if (positive_supset && !positive_supset->contains(entry.keySum)) {
-                    std::cout << "DECODED KEY NOT IN VALID RANGE (POSITIVE)" << std::endl;
-                    std::cout << entry.keySum << std::endl;
-                    std::cout << "CHECK " << entry.keyCheck << std::endl;
-                    if (negative_supset->contains(entry.keySum)) {
-                        std::cout << "IT SHOULD BE IN NEGATIVE" << std::endl;
-                    }
-                    if (negative.contains(std::make_pair(keySumVec, entry.valueSum))) {
-                        std::cout << "IT IS IN NEGATIVE" << std::endl;
-                    }
-                    exit(-1);
-                }
+                // DEBUGPRINT if (positive_supset && !positive_supset->contains(entry.keySum)) {
+                    // DEBUGPRINT std::cout << "DECODED KEY NOT IN VALID RANGE (POSITIVE)" << std::endl;
+                    // DEBUGPRINT std::cout << entry.keySum << std::endl;
+                    // DEBUGPRINT std::cout << "CHECK " << entry.keyCheck << std::endl;
+                    // DEBUGPRINT if (negative_supset->contains(entry.keySum)) {
+                        // DEBUGPRINT std::cout << "IT SHOULD BE IN NEGATIVE" << std::endl;
+                    // DEBUGPRINT }
+                    // DEBUGPRINT if (negative.contains(std::make_pair(keySumVec, entry.valueSum))) {
+                        // DEBUGPRINT std::cout << "IT IS IN NEGATIVE" << std::endl;
+                    // DEBUGPRINT }
+                    // DEBUGPRINT exit(-1);
+                // DEBUGPRINT }
             } else if (entry.count == -1) {
                 negative.insert(std::make_pair(keySumVec, entry.valueSum));
-                if (negative_supset && !negative_supset->contains(entry.keySum)) {
-                    std::cout << "DECODED KEY NOT IN VALID RANGE (NEGATIVE)" << std::endl;
-                    std::cout << entry.keySum << std::endl;
-                    std::cout << "CHECK " << entry.keyCheck << std::endl;
-                    if (positive_supset->contains(entry.keySum)) {
-                        std::cout << "IT SHOULD BE IN POSITIVE" << std::endl;
-                    }
-                    if (positive.contains(std::make_pair(keySumVec, entry.valueSum))) {
-                        std::cout << "IT IS IN POSITIVE" << std::endl;
-                    }
-                    exit(-1);
-                }
+                // DEBUGPRINT if (negative_supset && !negative_supset->contains(entry.keySum)) {
+                    // DEBUGPRINT std::cout << "DECODED KEY NOT IN VALID RANGE (NEGATIVE)" << std::endl;
+                    // DEBUGPRINT std::cout << entry.keySum << std::endl;
+                    // DEBUGPRINT std::cout << "CHECK " << entry.keyCheck << std::endl;
+                    // DEBUGPRINT if (positive_supset->contains(entry.keySum)) {
+                    // DEBUGPRINT   std::cout << "IT SHOULD BE IN POSITIVE" << std::endl;
+                    // DEBUGPRINT }
+                    // DEBUGPRINT if (positive.contains(std::make_pair(keySumVec, entry.valueSum))) {
+                    // DEBUGPRINT   std::cout << "IT IS IN POSITIVE" << std::endl;
+                    // DEBUGPRINT }
+                    // DEBUGPRINT exit(-1);
+                // DEBUGPRINT }
             } else {
-                std::cout << "WHAT?" << std::endl;
+                // DEBUGPRINT std::cout << "WHAT?" << std::endl;
                 exit(-1);
             }
             peeled._insert(-entry.count, entry.keySum, entry.valueSum);

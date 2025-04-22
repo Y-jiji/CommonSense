@@ -445,8 +445,8 @@ int main(int argc, char* argv[]) {
   WYHash resolving_hash(mask2, /*mode*/ 0, /*seed*/ rng(), /*seed2*/ rng(), /*mode64*/ finger_l >= 32);
 
   Status status = Status::CollisionAvoiding;
-  DecodeConfig dconf_alis(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ -1, /*ub*/ 0, max_num_peels, PursuitChoice::L2),
-    dconf_bela(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, max_num_peels, PursuitChoice::L2);
+  DecodeConfig dconf_alis(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ -1, /*ub*/ 0, PursuitChoice::L2),
+    dconf_bela(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, PursuitChoice::L2);
   if (A_minus_B_size == 0) dconf_alis.lb = 0;
   if (B_minus_A_size == 0) dconf_bela.ub = 0;
   if (force_pursue_l1) {
