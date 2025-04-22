@@ -86,13 +86,7 @@ int main(int argc, char* argv[]) {
   auto [setA, setB, setA_minus_B, setB_minus_A, A_minus_B_size, B_minus_A_size,
         A_intersect_B_size] = load_dataset(config);
   std::cout << "A minus B: " << A_minus_B_size << std::endl;
-  for (auto x: setA_minus_B) {
-    std::cout << x << std::endl;
-  }
   std::cout << "B minus A: " << B_minus_A_size << std::endl;
-  for (auto x: setB_minus_A) {
-    std::cout << x << std::endl;
-  }
 
   //                   //
   // Set Reconcilation //
@@ -131,12 +125,10 @@ int main(int argc, char* argv[]) {
     for (auto [key, value]: A_minus_B_IBLT_estimated) {
       if (!setA.contains(to_bit_set(value))) {
         std::cout << "KEY in decoded A minus B not in setA" << std::endl;
-        std::cout << to_bit_set(value) << std::endl;
         if (setB.contains(to_bit_set(value))) {
           std::cout << "It is in B" << std::endl;
         }
       }
-      std::cout << to_bit_set(value) << std::endl;
       setA.erase(to_bit_set(value));
       stop = false;
     }
@@ -149,12 +141,10 @@ int main(int argc, char* argv[]) {
     for (auto [key, value]: B_minus_A_IBLT_estimated) {
       if (!setB.contains(to_bit_set(value))) {
         std::cout << "KEY in B minus A not in setB" << std::endl;
-        std::cout << to_bit_set(value) << std::endl;
         if (setA.contains(to_bit_set(value))) {
           std::cout << "It is in A" << std::endl;
         }
       }
-      std::cout << to_bit_set(value) << std::endl;
       setB.erase(to_bit_set(value));
       stop = false;
     }
@@ -167,7 +157,6 @@ int main(int argc, char* argv[]) {
       std::cout << "STOP" << std::endl;
       break;
     }
-    break;
     // add to transmitted size
     transmitted_size_A_to_B += 
       setA_IBLT.hashTableSize() * iblt_cell_size;

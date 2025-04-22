@@ -26,7 +26,6 @@ namespace Doro {
         L2,
     };
     struct DecodeConfig {
-        int ta; // terminate if any element thrashes for ta times.
         bool verbose, debug;
         // lower and upper bound of value range
         double lb, ub;
@@ -66,7 +65,7 @@ namespace Doro {
             max_recenter_rounds_(max_recenter_rounds),
             finger_hash_(finger_hash), resolving_hash_(resolving_hash),
             neighbors_(code.size()), neighbors2_(code.size()),
-            result_(), fingerprints_(), my_fingerprints_(), thrashing_(), new_elements_(),
+            result_(), fingerprints_(), my_fingerprints_(), new_elements_(),
             pairs_5in3_(), affected_neighbors_(),
             priority_queue_(
                 // function from sensed strength to priority
@@ -78,10 +77,6 @@ namespace Doro {
             while (!priority_queue_.empty()) {
                 auto [strength, element] = priority_queue_.top();
                 new_elements_.insert(element);
-                auto thrash_iter = thrashing_.find(element);
-                int thrash = (thrash_iter != thrashing_.end()) ? thrash_iter->second : 0;
-                if (thrash > config_->ta) break;
-                thrashing_[element] = thrash + 1;
 
                 ArrType delta = strength_to_delta(element, strength);
                 code_->peel(element, delta);
@@ -97,8 +92,8 @@ namespace Doro {
                 update_neighbor_strengths(element, /*append53*/ true);
 
                 if (config_->verbose) {
-                    std::cout << std::format("thrash: {}, power: {}, element: {}, cur_element_value: {}, delta: {}\n",
-                        thrash, strength, element, cur_element_value, delta);
+                    std::cout << std::format("power: {}, element: {}, cur_element_value: {}, delta: {}\n",
+                        strength, element, cur_element_value, delta);
                     code_->show_result();
                 }
             }
@@ -442,10 +437,10 @@ namespace Doro {
         TwoDimVector neighbors_, neighbors2_;
         // decoded result
         std::unordered_map<IndexType, ArrType> result_;
+        // fingerprint values from another party
         std::unordered_set<int> fingerprints_;
+        // multimap from fingerprint to peeled value/key
         std::unordered_multimap<int, IndexType> my_fingerprints_;
-        // element -> number of times its value has changed
-        std::unordered_map<IndexType, int> thrashing_;
         // new elements decoded in this round
         std::unordered_set<IndexType> new_elements_;
         // if k = 5, this stores pairs of elements with 3 collisions.
