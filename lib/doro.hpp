@@ -208,6 +208,4 @@ private:
 
 } // namespace Doro
 
-void foo();
-
 #endif

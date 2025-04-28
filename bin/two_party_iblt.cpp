@@ -5,6 +5,7 @@
 #include <doro/probability.hpp>
 #include <doro/rans_wrapper.hpp>
 
+#include "doro/key_types.hpp"
 #include "libONIAK/oniakDataStructure/ohist.h"
 #include "libONIAK/oniakDebug/odebug.h"
 #include "libONIAK/oniakMath/overylarge.h"
@@ -13,25 +14,11 @@
 #include "nlohmann/json.hpp"
 
 #include <doro/iblt.h>
-#include <algorithm>
-#include <array>
-#include <bitset>
 #include <boost/math/distributions/binomial.hpp>
 #include <cmath>
-#include <filesystem>
-#include <format>
-#include <fstream>
 #include <iostream>
 #include <print>
-#include <random>
-#include <ranges>
 #include <stdint.h>
-#include <string>
-#include <tuple>
-#include <unordered_map>
-#include <unordered_set>
-#include <set>
-#include <vector>
 
 using namespace std;
 using namespace Doro;
@@ -43,7 +30,6 @@ enum class Party { Alis = 0, Bela = 1 };
 enum class Status { CollisionAvoiding = 0, CollisionResolving = 1, Finished = 2 };
 using CounterType = int16_t;
 using IndexType = VeryLargeInt<256>;
-using DoroCodeType = DoroCode<IndexType, CounterType>;
 
 // The following constants are used for parameter tuning
 constexpr double diff_coding_error_min = 1e-9;
@@ -84,7 +70,7 @@ int main(int argc, char* argv[]) {
   // Generate a vector
   // [  A (] B  )
   auto [setA, setB, setA_minus_B, setB_minus_A, A_minus_B_size, B_minus_A_size,
-        A_intersect_B_size] = load_dataset(config);
+        A_intersect_B_size] = load_dataset_k256(config);
   std::cout << "A minus B: " << A_minus_B_size << std::endl;
   std::cout << "B minus A: " << B_minus_A_size << std::endl;
 
@@ -99,21 +85,24 @@ int main(int argc, char* argv[]) {
     // stop flag
     bool stop = true;
     // compute IBLT for A and B
-    IBLT setA_IBLT((B_minus_A_size + A_minus_B_size), sizeof(IndexType));
+    IBLT<IndexType> setA_IBLT((B_minus_A_size + A_minus_B_size), sizeof(IndexType));
     std::cout << "BUILD IBLT FOR A" << std::endl;
     for (auto a: setA) {
       setA_IBLT.insert(a, to_binary_vector(a));
     }
     std::cout << "BUILD IBLT FOR B" << std::endl;
-    IBLT setB_IBLT((B_minus_A_size + A_minus_B_size), sizeof(IndexType));
+    IBLT<IndexType> setB_IBLT((B_minus_A_size + A_minus_B_size),
+                              sizeof(IndexType));
     for (auto b: setB) {
       setB_IBLT.insert(b, to_binary_vector(b));
     }
     // patch B with A's iblt
     auto setA_minus_B_IBLT = setA_IBLT - setB_IBLT;
     std::cout << "BUILD DIFFERENCE" << std::endl;
-    auto A_minus_B_IBLT_estimated = std::set<std::pair<std::vector<uint8_t>, std::vector<uint8_t>>>();
-    auto B_minus_A_IBLT_estimated = std::set<std::pair<std::vector<uint8_t>, std::vector<uint8_t>>>();
+    auto A_minus_B_IBLT_estimated =
+        std::unordered_map<VeryLargeInt<256>, std::vector<uint8_t>>();
+    auto B_minus_A_IBLT_estimated =
+        std::unordered_map<VeryLargeInt<256>, std::vector<uint8_t>>();
     std::cout << "LIST ENTRIES" << std::endl;
     auto ok = setA_minus_B_IBLT.listEntries(A_minus_B_IBLT_estimated, B_minus_A_IBLT_estimated, &setA_minus_B, &setB_minus_A);
     if (!ok) {
@@ -208,4 +197,5 @@ int main(int argc, char* argv[]) {
   config["success"] = success;
   config["round"] = round;
   fout << std::setw(4) << config << endl;  // indent 4
+  return 0;
 }

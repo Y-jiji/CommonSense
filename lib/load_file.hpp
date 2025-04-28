@@ -52,7 +52,7 @@ std::vector<std::bitset<256>> load(const std::string &path) {
   return values;
 }
 
-auto load_dataset(const nlohmann::json& config) {
+auto load_dataset_k256(const nlohmann::json& config) {
   if (config.contains("A path") && config.contains("B path") &&
       config.contains("Intersect path")) {
     auto vecA = load(config.at("A path"));

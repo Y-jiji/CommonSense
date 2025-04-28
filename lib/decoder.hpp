@@ -1,5 +1,6 @@
 #pragma once
 
+#include "doro/key_types.hpp"
 #include "libONIAK/oniakDataStructure/oupq.h"
 #include "libONIAK/oniakHash/ohash.h"
 #include "libONIAK/oniakMath/orange.h"
@@ -32,14 +33,6 @@ namespace Doro {
         int max_num_peels = -1;
         PursuitChoice pursuit_choice;
     };
-
-    template <typename IndexType>
-    std::vector<uint8_t> to_binary_vector(const IndexType& x) {
-        constexpr size_t size = sizeof(IndexType);
-        std::vector<uint8_t> result(size);
-        std::memcpy(result.data(), &x, size);
-        return result;
-    }
 
     template <typename IndexType>
     IndexType from_binary_vector(const std::vector<uint8_t>& vec) {
@@ -228,7 +221,7 @@ namespace Doro {
             }
         }
 
-        void encode_iblt(IBLT& iblt) const {
+        void encode_iblt(IBLT<IndexType>& iblt) const {
             for (const IndexType& element : *setA_) {
                 // elements that are assumed not to be in result
                 if (!(result_.contains(element) && result_.at(element) != 0)) {
@@ -237,7 +230,7 @@ namespace Doro {
             }
         }
 
-        std::vector<IndexType> decode_iblt(IBLT iblt) {
+        std::vector<IndexType> decode_iblt(IBLT<IndexType> iblt) {
             // compute difference iblt
             for (const IndexType& element : *setA_) {
                 if (!(result_.contains(element) && result_.at(element) != 0)) {
@@ -257,65 +250,85 @@ namespace Doro {
                 if (my_value == 0) {
                     other_result.push_back(element);
                 } else {
-                    // here, doro is not updated, since we no longer attempt to peel them.
-                    result_[element] = my_value;
-                    new_elements_.insert(element);
+                    std::vector<IndexType> other_result;
+                    ArrType my_value =
+                        (config_->ub > 0) ? config_->ub : config_->lb;
+                    // negative entries are my extra ones
+                    for (const auto& [key, value] : negative) {
+                        IndexType element = from_binary_vector<IndexType>(value);
+                        // special case, if we have no error, it must be from the
+                        // other side.
+                        if (my_value == 0) {
+                            other_result.push_back(element);
+                        } else {
+                            // here, doro is not updated, since we no longer attempt
+                            // to peel them.
+                            result_[element] = my_value;
+                            new_elements_.insert(element);
+                        }
+                    } // these new elements still may collide with those in the
+                      // other party.
+                    add_unresolved_elements();
+
+                    // positive entries are the other's extra ones
+
+                } // these new elements still may collide with those in the
+                  // other party.
+            }
+                add_unresolved_elements();
+
+                // positive entries are the other's extra ones
+
+                for (const auto& [key, value] : positive) {
+                    IndexType element = from_binary_vector<IndexType>(value);
+                    if (setA_->contains(element)) {  // false positive is at my side
+                        result_[element] = 0;
+                    } else
+                        other_result.push_back(element);
                 }
-            }  // these new elements still may collide with those in the other party.
-            add_unresolved_elements();
-
-            // positive entries are the other's extra ones
-
-            for (const auto& [key, value] : positive) {
-                IndexType element = from_binary_vector<IndexType>(value);
-                if (setA_->contains(element)) {  // false positive is at my side
-                    result_[element] = 0;
-                } else
-                    other_result.push_back(element);
+                return other_result;
             }
-            return other_result;
-        }
 
-        void add_iblt_elements(std::vector<IndexType> list) {
-            ArrType my_value = (config_->ub > 0) ? config_->ub : config_->lb;
-            for (const IndexType& element : list) {
-                // considering the special case above, we flip our result
-                if (result_.contains(element) && result_.at(element) != 0) result_[element] = 0;
+            void add_iblt_elements(std::vector<IndexType> list) {
+                ArrType my_value = (config_->ub > 0) ? config_->ub : config_->lb;
+                for (const IndexType& element : list) {
+                    // considering the special case above, we flip our result
+                    if (result_.contains(element) && result_.at(element) != 0) result_[element] = 0;
+                    else
+                        result_[element] = my_value;
+                }
+            }
+
+            void enter_resolving() {
+                collision_resolving_ = true;
+            }
+
+            std::vector<std::pair<int, uint64_t>>& unresolved_elements() {
+                return unresolved_elements_;
+            }
+
+            bool has_new_elements() const {
+                return !new_elements_.empty();
+            }
+
+            void add_to_priority_queue(IndexType element, ArrType strength, ArrType delta) {
+                // if fingerprint mechanism is active, then this element must not collide with any known fingerprint
+                // this is set to avoid the case in which one party adds an element, and another party subtracts it.
+                bool fingerprint_condition = (finger_hash_ == nullptr) || !fingerprints_.contains(finger_hash_->hash_in_range(element));
+                bool delta_condition = (std::abs(delta) > 1e-6);
+                if ((collision_resolving_ || fingerprint_condition) && delta_condition)
+                    priority_queue_.push(element, strength);
                 else
-                    result_[element] = my_value;
+                    priority_queue_.set(element, strength);
             }
-        }
 
-        void enter_resolving() {
-            collision_resolving_ = true;
-        }
+            std::unordered_set<int>& fingerprints() {
+                return fingerprints_;
+            }
 
-        std::vector<std::pair<int, uint64_t>>& unresolved_elements() {
-            return unresolved_elements_;
-        }
-
-        bool has_new_elements() const {
-            return !new_elements_.empty();
-        }
-
-        void add_to_priority_queue(IndexType element, ArrType strength, ArrType delta) {
-            // if fingerprint mechanism is active, then this element must not collide with any known fingerprint
-            // this is set to avoid the case in which one party adds an element, and another party subtracts it.
-            bool fingerprint_condition = (finger_hash_ == nullptr) || !fingerprints_.contains(finger_hash_->hash_in_range(element));
-            bool delta_condition = (std::abs(delta) > 1e-6);
-            if ((collision_resolving_ || fingerprint_condition) && delta_condition)
-                priority_queue_.push(element, strength);
-            else
-                priority_queue_.set(element, strength);
-        }
-
-        std::unordered_set<int>& fingerprints() {
-            return fingerprints_;
-        }
-
-        const std::unordered_set<int>& fingerprints() const {
-            return fingerprints_;
-        }
+            const std::unordered_set<int>& fingerprints() const {
+                return fingerprints_;
+            }
 
     private:
         ArrType get_delta(double delta, ArrType cur_value) const {
@@ -452,6 +465,6 @@ namespace Doro {
         bool collision_resolving_;
         std::vector<std::pair<int, uint64_t>> unresolved_elements_;
         std::vector<IndexType> unresolved_ids_;
-    };
+        };
 
-}
+    }

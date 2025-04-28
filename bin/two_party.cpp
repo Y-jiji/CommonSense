@@ -285,7 +285,7 @@ int main(int argc, char* argv[]) {
   size_t seed = 0;
   if (config.contains("seed")) seed = config.at("seed");
 
-  auto [setA, setB, setA_minus_B, setB_minus_A, A_minus_B_size, B_minus_A_size, A_intersect_B_size] = load_dataset(config);
+  auto [setA, setB, setA_minus_B, setB_minus_A, A_minus_B_size, B_minus_A_size, A_intersect_B_size] = load_dataset_k256(config);
   auto A_size = setA.size();
   auto B_size = setB.size();
 
@@ -536,7 +536,7 @@ int main(int argc, char* argv[]) {
       if (!doro.empty()) {
         int estimated_diff = sample_mean_variance(doro.code()).second * doro.code().size() * iblt_element_factor + iblt_element_margin;
         config["estimated diff"] = estimated_diff;
-        IBLT iblt(estimated_diff, sizeof(IndexType));
+        IBLT<IndexType> iblt(estimated_diff, sizeof(IndexType));
         decoder.encode_iblt(iblt);
         comm_rounds = actual_comm_rounds;
         ++actual_comm_rounds;
