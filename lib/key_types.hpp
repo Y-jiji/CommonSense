@@ -7,7 +7,7 @@
 #include <doro/sha256.hpp>
 
 using IndexType = ONIAK::VeryLargeInt<256>;
-using IndexTypeI64 = int64_t;
+using IndexTypeU64 = uint64_t;
 
 template <typename K> inline std::vector<uint8_t> to_binary_vector(const K &x) {
   constexpr size_t size = sizeof(K);

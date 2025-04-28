@@ -52,28 +52,34 @@ std::vector<std::bitset<256>> load(const std::string &path) {
   return values;
 }
 
-auto load_dataset_k256(const nlohmann::json& config) {
+template<typename K>
+auto load_dataset_k256_or_k32(const nlohmann::json& config) {
   if (config.contains("A path") && config.contains("B path") &&
       config.contains("Intersect path")) {
-    auto vecA = load(config.at("A path"));
-    auto setA = std::unordered_set<IndexType>(vecA.begin(), vecA.end());
-    auto vecB = load(config.at("B path"));
-    auto setB = std::unordered_set<IndexType>(vecB.begin(), vecB.end());
-    auto vecIntersect = load(config.at("Intersect path"));
-    auto setIntersect =
-        std::unordered_set<IndexType>(vecIntersect.begin(), vecIntersect.end());
-    auto A_size = setA.size();
-    auto B_size = setB.size();
-    auto A_minus_B_size = A_size - setIntersect.size();
-    auto B_minus_A_size = B_size - setIntersect.size();
-    auto setA_minus_B = setA;
-    auto setB_minus_A = setB;
-    for (const auto &v : setIntersect) {
-      setA_minus_B.erase(v);
-      setB_minus_A.erase(v);
+    if constexpr(std::is_same<K, std::bitset<256>>()) {
+      auto vecA = load(config.at("A path"));
+      auto setA = std::unordered_set<K>(vecA.begin(), vecA.end());
+      auto vecB = load(config.at("B path"));
+      auto setB = std::unordered_set<K>(vecB.begin(), vecB.end());
+      auto vecIntersect = load(config.at("Intersect path"));
+      auto setIntersect =
+          std::unordered_set<K>(vecIntersect.begin(), vecIntersect.end());
+      auto A_size = setA.size();
+      auto B_size = setB.size();
+      auto A_minus_B_size = A_size - setIntersect.size();
+      auto B_minus_A_size = B_size - setIntersect.size();
+      auto setA_minus_B = setA;
+      auto setB_minus_A = setB;
+      for (const auto &v : setIntersect) {
+        setA_minus_B.erase(v);
+        setB_minus_A.erase(v);
+      }
+      return std::make_tuple(setA, setB, setA_minus_B, setB_minus_A,
+                            A_minus_B_size, B_minus_A_size, setIntersect.size());
+    } else {
+      std::cout << "Bad data type, the loading from file only supports u256" << std::endl;
+      exit(-1);
     }
-    return std::make_tuple(setA, setB, setA_minus_B, setB_minus_A,
-                           A_minus_B_size, B_minus_A_size, setIntersect.size());
   } else {
     size_t seed = 0;
     if (config.contains("seed"))
@@ -100,15 +106,15 @@ auto load_dataset_k256(const nlohmann::json& config) {
     size_t B_minus_A_size = B_size - A_intersect_B_size;
 
     mt19937 rng(seed);
-    auto rand_vec = ONIAK::random_nonrepetitive<IndexType>(A_union_B_size, rng);
+    auto rand_vec = ONIAK::random_nonrepetitive<K>(A_union_B_size, rng);
 
     // Extract A, B, A - B, B - A
-    unordered_set<IndexType> setA(rand_vec.begin(), rand_vec.begin() + A_size);
-    unordered_set<IndexType> setB(rand_vec.begin() + A_minus_B_size,
+    unordered_set<K> setA(rand_vec.begin(), rand_vec.begin() + A_size);
+    unordered_set<K> setB(rand_vec.begin() + A_minus_B_size,
                                   rand_vec.end());
-    unordered_set<IndexType> setA_minus_B(rand_vec.begin(),
+    unordered_set<K> setA_minus_B(rand_vec.begin(),
                                           rand_vec.begin() + A_minus_B_size);
-    unordered_set<IndexType> setB_minus_A(rand_vec.begin() + A_size,
+    unordered_set<K> setB_minus_A(rand_vec.begin() + A_size,
                                           rand_vec.end());
     return std::make_tuple(setA, setB, setA_minus_B, setB_minus_A,
                            A_minus_B_size, B_minus_A_size, A_intersect_B_size);

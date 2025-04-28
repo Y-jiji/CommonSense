@@ -285,7 +285,7 @@ int main(int argc, char* argv[]) {
   size_t seed = 0;
   if (config.contains("seed")) seed = config.at("seed");
 
-  auto [setA, setB, setA_minus_B, setB_minus_A, A_minus_B_size, B_minus_A_size, A_intersect_B_size] = load_dataset_k256(config);
+  auto [setA, setB, setA_minus_B, setB_minus_A, A_minus_B_size, B_minus_A_size, A_intersect_B_size] = load_dataset_k256_or_k32<IndexType>(config);
   auto A_size = setA.size();
   auto B_size = setB.size();
 

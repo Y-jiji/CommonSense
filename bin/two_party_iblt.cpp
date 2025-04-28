@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
   // Generate a vector
   // [  A (] B  )
   auto [setA, setB, setA_minus_B, setB_minus_A, A_minus_B_size, B_minus_A_size,
-        A_intersect_B_size] = load_dataset_k256(config);
+        A_intersect_B_size] = load_dataset_k256_or_k32<IndexType>(config);
   std::cout << "A minus B: " << A_minus_B_size << std::endl;
   std::cout << "B minus A: " << B_minus_A_size << std::endl;
 
