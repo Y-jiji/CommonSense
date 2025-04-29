@@ -84,12 +84,12 @@ auto load_dataset_k256_or_k32(const nlohmann::json& config) {
     size_t seed = 0;
     if (config.contains("seed"))
       seed = config.at("seed");
-    size_t A_size = config.at("A size");
-    size_t B_size = config.at("B size");
-    size_t A_minus_B_size = A_size - B_size;
+    int A_size = config.at("A size");
+    int B_size = config.at("B size");
+    int A_minus_B_size = A_size - B_size;
     if (config.contains("A minus B size"))
       A_minus_B_size = config.at("A minus B size");
-    size_t A_minus_B_size_minimum = std::max(size_t(0), A_size - B_size);
+      int A_minus_B_size_minimum = std::max(0, A_size - B_size);
     if (A_minus_B_size < A_minus_B_size_minimum) {
       cout << "Warning: A_minus_B_size is too small. Reset to minimum "
               "possible value."
