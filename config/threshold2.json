@@ -6,16 +6,16 @@
   "root path": "/media/mydrive/CDMA",
   "max process": 30,
   "seed": 2845347721,
-  "A size": 1000100,
+  "A size": 1000000,
   "B size": 
     1010000,
-  "A minus B size": 100,
+  "A minus B size": 0,
   "k": 5,
   "d": 106050,
-  "max num peels": 1000000000,
-  "max rounds": 1000,
+  "max num peels": 10000,
+  "max rounds": 3,
   "max comm rounds": 10,
   "counting": true,
   "result filename": "test.json",
-  "debug": false
+  "debug": true
 }

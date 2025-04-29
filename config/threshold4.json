@@ -1,20 +1,18 @@
 {
   "script": [
-    "ROOT/build/bin/doro",
+    "ROOT/build/bin/two_party_i64",
     "JSON"
   ],
-  "root path": "/media/mydrive/CDMA",
-  "max process": 30,
+  "root path": "/media/gtnetuser/Dell/CDMA",
+  "max process": 12,
   "seed": [
     "ITER_RANDOM",
-    7971
+    10000
   ],
-  "universe": 5000000,
   "A size": 1000000,
   "B size": [
     "ITER_ALL",
     1010000,
-    1020000, 
     1050000,
     1100000,
     1200000,
@@ -31,7 +29,6 @@
     "B size",
     {
       "1010000": [8.2],
-      "1020000": [7], 
       "1050000": [5.2],
       "1100000": [4.3],
       "1200000": [3.4],
