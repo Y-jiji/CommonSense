@@ -77,7 +77,7 @@ auto load_dataset_k256_or_k32(const nlohmann::json& config) {
       return std::make_tuple(setA, setB, setA_minus_B, setB_minus_A,
                             A_minus_B_size, B_minus_A_size, setIntersect.size());
     } else {
-      std::cout << "Bad data type, the loading from file only supports u256" << std::endl;
+      std::cout << "Bad data type, loading from file only supports u256" << std::endl;
       exit(-1);
     }
   } else {
