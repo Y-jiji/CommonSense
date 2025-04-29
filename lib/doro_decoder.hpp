@@ -28,7 +28,7 @@ namespace Doro {
         bool verbose, debug;
         // lower and upper bound of value range
         double lb, ub;
-        int max_num_peels = -1;
+        int max_num_peels;
         PursuitChoice pursuit_choice;
     };
 

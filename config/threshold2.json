@@ -12,7 +12,7 @@
   "A minus B size": 0,
   "k": 5,
   "d": 106050,
-  "max num peels": 10000,
+  "max num peels": 2000,
   "max rounds": 3,
   "max comm rounds": 10,
   "counting": true,

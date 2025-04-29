@@ -27,11 +27,11 @@ find_package(Threads REQUIRED)
 # -- Manage Compile Options w/ ASAN flags
 
 if(CMAKE_BUILD_TYPE MATCHES "Release")
-    add_compile_options(-O3 -Werror -Wno-attributes -DNDEBUG)
+    add_compile_options(-O3 -Werror -Wall -Wno-attributes -DNDEBUG)
 elseif(CMAKE_BUILD_TYPE MATCHES "Debug")
     add_compile_options(-fsanitize=address)
     add_link_options(-fsanitize=address)
-    add_compile_options(-O0 -ggdb -Werror -Wno-attributes -DDEBUG -DONIAK_DEBUG)
+    add_compile_options(-O0 -ggdb -Werror -Wall -Wno-attributes -DDEBUG -DONIAK_DEBUG)
 endif()
 
 # -- Process Main Library & Unit Tests

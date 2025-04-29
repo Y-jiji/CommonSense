@@ -1,5 +1,5 @@
 #include <doro/bch_wrapper.hpp>
-#include <doro/decoder.hpp>
+#include <doro/doro_decoder.hpp>
 #include <doro/doro.hpp>
 #include <doro/load_file.hpp>
 #include <doro/probability.hpp>
@@ -193,7 +193,7 @@ doro_parameter doro_parameter_tuning(int d, int k, int A_minus_B_size, int B_min
       int cur_lb = lb, cur_ub = ub;
 
       while (diff_err > diff_coding_error) {
-        int midpoint; // default midpoint
+        int midpoint = INT_MAX; // default midpoint
         double prob_in_range = 0.0;
         // We assume the original difference is between [mid - interval, mid + interval).
         for (int mid = cur_lb; mid <= cur_ub; ++mid) {
@@ -286,13 +286,10 @@ int main(int argc, char* argv[]) {
   if (config.contains("seed")) seed = config.at("seed");
 
   auto [setA, setB, setA_minus_B, setB_minus_A, A_minus_B_size, B_minus_A_size, A_intersect_B_size] = load_dataset_k256_or_k32<IndexType>(config);
-  auto A_size = setA.size();
   auto B_size = setB.size();
 
   int k = config.at("k");
   int d = config.at("d");
-  int ta = 5;
-  if (config.contains("ta")) ta = config.at("ta");
   std::string save_path = config.at("result filename");
   int max_comm_rounds = 20;
   if (config.contains("max comm rounds")) max_comm_rounds = config.at("max comm rounds");
@@ -313,8 +310,6 @@ int main(int argc, char* argv[]) {
   failure_rate /= B_minus_A_size; // from now on, we 
   int max_recenter_rounds = 100;
   if (config.contains("max recenter rounds")) max_recenter_rounds = config.at("max recenter rounds");
-  int max_num_peels = -1;
-  if (config.contains("max num peels")) max_num_peels = config.at("max num peels");
   bool force_pursue_l1 = false;
   if (config.contains("force pursue l1")) force_pursue_l1 = config.at("force pursue l1");
 
@@ -445,8 +440,10 @@ int main(int argc, char* argv[]) {
   WYHash resolving_hash(mask2, /*mode*/ 0, /*seed*/ rng(), /*seed2*/ rng(), /*mode64*/ finger_l >= 32);
 
   Status status = Status::CollisionAvoiding;
-  DecodeConfig dconf_alis(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ -1, /*ub*/ 0, PursuitChoice::L2),
-    dconf_bela(ta, /*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1, PursuitChoice::L2);
+  DecodeConfig dconf_alis(/*verbose*/ false, /*debug*/ false, /*lb*/ -1,
+                          /*ub*/ 0, /*max_num_peels*/ -1, PursuitChoice::L2),
+      dconf_bela(/*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1,
+                 /*max_num_peels*/ -1, PursuitChoice::L2);
   if (A_minus_B_size == 0) dconf_alis.lb = 0;
   if (B_minus_A_size == 0) dconf_bela.ub = 0;
   if (force_pursue_l1) {
@@ -468,7 +465,6 @@ int main(int argc, char* argv[]) {
     actual_comm_rounds = std::max(actual_comm_rounds, comm_rounds + 1);
     // who is current decoder?
     party = (party == Party::Alis) ? Party::Bela : Party::Alis;
-    DecodeConfig& dconf = (party == Party::Alis) ? dconf_alis : dconf_bela;
     DoroDecoder<DoroCodeType>& decoder = (party == Party::Alis) ? decoder_alis : decoder_bela,
       & other_decoder = (party == Party::Alis) ? decoder_bela : decoder_alis;
     int num_peels = decoder.decode();

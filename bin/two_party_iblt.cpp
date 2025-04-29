@@ -1,6 +1,6 @@
 #include <doro/load_file.hpp>
 #include <doro/bch_wrapper.hpp>
-#include <doro/decoder.hpp>
+#include <doro/doro_decoder.hpp>
 #include <doro/doro.hpp>
 #include <doro/probability.hpp>
 #include <doro/rans_wrapper.hpp>
@@ -56,9 +56,6 @@ int main(int argc, char* argv[]) {
     cout << "Error: cannot open file " << save_path << endl;
     return 1;
   }
-
-  size_t seed = 0;
-  if (config.contains("seed")) seed = config.at("seed");
 
   // a helper function to convert value from bitvector to bitset
   auto to_bit_set = [](const std::vector<uint8_t>& bv) {
