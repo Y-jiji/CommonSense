@@ -15,7 +15,7 @@ template<typename K>
 class IBLT {
 public:
 
-  IBLT(size_t _expectedNumEntries, size_t _ValueSize, float hedge = 4.0, size_t _numHashes = 4);
+  IBLT(size_t _expectedNumEntries, size_t _ValueSize, float hedge = 1.37, size_t _numHashes = 4);
   IBLT(const IBLT<K>& other);
   virtual ~IBLT();
 

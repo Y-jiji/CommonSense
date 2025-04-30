@@ -40,7 +40,7 @@ constexpr double diff_coding_error_final = 1e-6;
 constexpr double bch_block_error_rate = 0.01;
 constexpr int iblt_element_margin = 100;
 constexpr double iblt_element_factor = 1.25;
-constexpr int iblt_cell_size = 32 * 8 + 64; // 32 key-check bits.
+constexpr uint64_t iblt_cell_size = 32 * 8 + 48; // 48 key-check bits.
 
 int main(int argc, char* argv[]) {
   if (argc < 2) {
@@ -180,7 +180,7 @@ int main(int argc, char* argv[]) {
   FILE* file = fopen("/proc/self/status", "r");
   char line[128];
   while (fgets(line, 128, file) != NULL) {
-    if (strstr(line, "VmPeak:") != NULL) {
+    if (strstr(line, "VmHWM:") != NULL) {
       config["peak memory"] = line;
     }
   }
