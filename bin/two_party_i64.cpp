@@ -319,6 +319,9 @@ int main(int argc, char* argv[]) {
   if (config.contains("max num peels")) max_num_peels = config.at("max num peels");
   bool force_pursue_l1 = false;
   if (config.contains("force pursue l1")) force_pursue_l1 = config.at("force pursue l1");
+  bool track_values = true;
+  if (config.contains("track values")) track_values = config.at("track values");
+  if (max(setA.size(), setB.size())>10000000) track_values = false;
 
   if (config.contains("skip if exists")) skip_if_exists = config.at("skip if exists");
   if (skip_if_exists && filesystem::exists(save_path)) {
@@ -337,9 +340,9 @@ int main(int argc, char* argv[]) {
   cout << "Automatically selected the following parameters: " << endl;
   print_doro_parameter(auto_parameter);
 
-  DoroCodeType doro(d, k, counting, rng, auto_parameter.lb, auto_parameter.ub);
+  DoroCodeType doro(d, k, counting, rng, auto_parameter.lb, auto_parameter.ub, track_values);
   // copy to keep the same set of hash functions
-  auto first_round_code = doro;
+  auto first_round_code = doro.copy();
   unordered_map<IndexTypeU64, CounterType> Bela_coef, Alis_coef;
   for (auto& i : setA) {
     Alis_coef[i] = 1;
@@ -378,10 +381,16 @@ int main(int argc, char* argv[]) {
   first_round_code.code() = std::move(first_round_decompressed_code);
 
   doro.encode(Bela_coef);
-  for (auto& item : setA) {
-    if (doro.values().contains(item)) doro.values()[item] -= 1;
-    else doro.values()[item] = -1;
+  auto doro_value = doro.values();
+  if (doro_value) {
+    for (auto& item : setA) {
+      if (doro_value->contains(item))
+        doro_value->operator[](item)-= 1;
+      else
+        doro_value->operator[](item) = -1;
+    }
   }
+   
   vector<uint8_t> data_decode;
   vector<CounterType> diff_vec;
   for (auto [i, val] : views::enumerate(doro.code())) {

@@ -6,12 +6,13 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <format>
 #include <inttypes.h>
 #include <iostream>
 #include <numeric>
+#include <random>
 #include <ranges>
 #include <unordered_map>
+#include <memory>
 #include <vector>
 
 namespace Doro {
@@ -28,23 +29,26 @@ public:
   using ArrayT = ArrType;
 
   template <typename RandomDevice>
-  DoroCode(int size, int k, bool is_cbf, RandomDevice& rng, int lb = 0, int ub = 0) :
+  DoroCode(int size, int k, bool is_cbf, RandomDevice& rng, int lb = 0, int ub = 0, bool track_value = true) :
     arr_(size), is_cbf_(is_cbf), k_(k), num_peels_(0), num_correct_peels_(0),
     num_recenters_(0), lb_(lb), ub_(ub), interval_(ub - lb) {
     int num_hash_funcs = std::max(kDoroNumHashFuncs, k + kDoroNumHashFuncsMargin);
     hash_funcs_.reserve(num_hash_funcs);
     std::ranges::for_each(std::views::iota(0, num_hash_funcs),
       [&](int) {hash_funcs_.emplace_back(/*mask*/ 0, /*mod*/ 2 * size, /*seed*/ rng());});
+    if (track_value) {
+      values_ = std::make_unique<SparseVector>();
+    }
   }
 
   void encode(const SparseVector& kvpairs) {
-    assert(values_.empty());
+    assert(!values_ || values_->empty());
     for (auto [x, val] : kvpairs) {
       auto all_hashes = hash_all(x);
       for (auto [index, sign] : all_hashes) {
         arr_[index] += sign * val;
       }
-      values_[x] = val;
+      if (values_) values_->operator[](x) = val;
     }
   }
 
@@ -56,12 +60,14 @@ public:
     for (auto [index, sign] : all_hashes) {
       arr_[index] -= sign * delta;
     }
-    auto element_iter = values_.find(element);
-    ArrType ori_value = (element_iter != values_.end()) ? element_iter->second : 0;
+    if (values_) {
+    auto element_iter = values_->find(element);
+    ArrType ori_value = (element_iter != values_->end()) ? element_iter->second : 0;
     ArrType new_value = ori_value - delta;
-    values_[element] = new_value;
+    values_->operator[](element)= new_value;
     if (std::abs(new_value) < std::abs(ori_value))
       num_correct_peels_ += 1;
+    }
   }
 
   // senses the signal of an element by inner product
@@ -130,11 +136,16 @@ public:
   }
 
   int nonzero_num() const {
-    return std::count_if(values_.begin(), values_.end(), [](PairType pair) { return pair.second != 0; });
+    if (!values_) return -1;
+    return std::count_if(values_->begin(), values_->end(),
+                         [](PairType pair) { return pair.second != 0; });
   }
 
   ArrType mae() const {
-    return std::accumulate(values_.begin(), values_.end(), 0, [](ArrType sum, PairType pair) { return sum + std::abs(pair.second); });
+    if (!values_) return -1;
+    return std::accumulate(
+        values_->begin(), values_->end(), 0,
+        [](ArrType sum, PairType pair) { return sum + std::abs(pair.second); });
   }
 
   void reset() {
@@ -142,7 +153,7 @@ public:
     num_peels_ = 0;
     num_correct_peels_ = 0;
     num_recenters_ = 0;
-    values_ = {};
+    values_->clear();
   }
 
   int size() const {
@@ -168,7 +179,7 @@ public:
     std::cout << "L1 Norm of indices: " << mae() << std::endl;
   }
 
-  SparseVector& values() { return values_; }
+  SparseVector* values() { return values_.get(); }
 
   // each value is an (index, sign) pair
   std::vector<std::pair<int, int>> hash_all(IndexType x) const {
@@ -192,9 +203,20 @@ public:
     return std::all_of(arr_.begin(), arr_.end(), [](ArrType val) { return val == 0; });
   }
 
+  DoroCode copy() const {
+    std::mt19937 rng;
+    DoroCode copy(size(), k_, is_cbf_, rng, lb_, ub_, values_ != nullptr);
+    copy.arr_ = arr_;
+    copy.hash_funcs_ = hash_funcs_;
+    if (values_) {
+      copy.values_ = std::make_unique<SparseVector>(*values_);
+    }
+    return copy;
+  }
+
 private:
   std::vector<ArrType> arr_;
-  SparseVector values_;
+  std::unique_ptr<SparseVector> values_;
 
   // If is_cbf_ is true, then all hashed signs are positive.
   bool is_cbf_; // cbf: counting Bloom filter

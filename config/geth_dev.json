@@ -1,11 +1,12 @@
 {
   "root path": "/media/gtnetuser/Dell/CDMA",
   "seed": 43,
-  "k": 5,
-  "d": 2167029,
+  "k": 7,
+  "d": 2000,
   "counting": true,
-  "A path": "geth/state-a-dev.txt",
-  "B path": "geth/state-b-dev.txt",
-  "Intersect path": "geth/state-intersect-dev.txt",
-  "result filename": "result/geth.json"
+  "A path": "/media/mydrive/CDMA/data/geth/state-a-dev.txt",
+  "B path": "/media/mydrive/CDMA/data/geth/state-b-dev.txt",
+  "Intersect path": "/media/mydrive/CDMA/data/geth/state-intersect-dev.txt",
+  "result filename": "/media/mydrive/CDMA/result/geth.json",
+  "debug": false
 }

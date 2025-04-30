@@ -56,7 +56,7 @@ template<typename K>
 auto load_dataset_k256_or_k32(const nlohmann::json& config) {
   if (config.contains("A path") && config.contains("B path") &&
       config.contains("Intersect path")) {
-    if constexpr(std::is_same<K, std::bitset<256>>()) {
+    if constexpr (std::is_same<K, ONIAK::VeryLargeInt<256>>()) {
       auto vecA = load(config.at("A path"));
       auto setA = std::unordered_set<K>(vecA.begin(), vecA.end());
       auto vecB = load(config.at("B path"));
@@ -117,6 +117,6 @@ auto load_dataset_k256_or_k32(const nlohmann::json& config) {
     unordered_set<K> setB_minus_A(rand_vec.begin() + A_size,
                                           rand_vec.end());
     return std::make_tuple(setA, setB, setA_minus_B, setB_minus_A,
-                           A_minus_B_size, B_minus_A_size, A_intersect_B_size);
+                           static_cast<size_t>(A_minus_B_size), B_minus_A_size, A_intersect_B_size);
   }
 }

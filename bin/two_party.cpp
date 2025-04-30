@@ -285,7 +285,8 @@ int main(int argc, char* argv[]) {
   size_t seed = 0;
   if (config.contains("seed")) seed = config.at("seed");
 
-  auto [setA, setB, setA_minus_B, setB_minus_A, A_minus_B_size, B_minus_A_size, A_intersect_B_size] = load_dataset_k256_or_k32<IndexType>(config);
+  auto [setA, setB, setA_minus_B, setB_minus_A, A_minus_B_size, B_minus_A_size, A_intersect_B_size] 
+  = load_dataset_k256_or_k32<IndexType>(config);
   auto B_size = setB.size();
 
   int k = config.at("k");
@@ -312,6 +313,13 @@ int main(int argc, char* argv[]) {
   if (config.contains("max recenter rounds")) max_recenter_rounds = config.at("max recenter rounds");
   bool force_pursue_l1 = false;
   if (config.contains("force pursue l1")) force_pursue_l1 = config.at("force pursue l1");
+  bool track_values = true;
+  int max_num_peels = -1;
+  if (config.contains("max num peels")) max_num_peels = config.at("max num peels");
+  if (config.contains("track values"))
+    track_values = config.at("track values");
+  if (max(setA.size(), setB.size()) > 10000000)
+    track_values = false;
 
   if (config.contains("skip if exists")) skip_if_exists = config.at("skip if exists");
   if (skip_if_exists && filesystem::exists(save_path)) {
@@ -330,9 +338,9 @@ int main(int argc, char* argv[]) {
   cout << "Automatically selected the following parameters: " << endl;
   print_doro_parameter(auto_parameter);
 
-  DoroCodeType doro(d, k, counting, rng, auto_parameter.lb, auto_parameter.ub);
+  DoroCodeType doro(d, k, counting, rng, auto_parameter.lb, auto_parameter.ub, track_values);
   // copy to keep the same set of hash functions
-  auto first_round_code = doro;
+  auto first_round_code = doro.copy();
   unordered_map<IndexType, CounterType> Bela_coef, Alis_coef;
   for (auto& i : setA) {
     Alis_coef[i] = 1;
@@ -371,9 +379,14 @@ int main(int argc, char* argv[]) {
   first_round_code.code() = std::move(first_round_decompressed_code);
 
   doro.encode(Bela_coef);
-  for (auto& item : setA) {
-    if (doro.values().contains(item)) doro.values()[item] -= 1;
-    else doro.values()[item] = -1;
+  auto doro_value = doro.values();
+  if (doro_value) {
+    for (auto &item : setA) {
+      if (doro_value->contains(item))
+        doro_value->operator[](item) -= 1;
+      else
+        doro_value->operator[](item) = -1;
+    }
   }
   vector<uint8_t> data_decode;
   vector<CounterType> diff_vec;
@@ -441,9 +454,9 @@ int main(int argc, char* argv[]) {
 
   Status status = Status::CollisionAvoiding;
   DecodeConfig dconf_alis(/*verbose*/ false, /*debug*/ false, /*lb*/ -1,
-                          /*ub*/ 0, /*max_num_peels*/ -1, PursuitChoice::L2),
+                          /*ub*/ 0, max_num_peels, PursuitChoice::L2),
       dconf_bela(/*verbose*/ false, /*debug*/ false, /*lb*/ 0, /*ub*/ 1,
-                 /*max_num_peels*/ -1, PursuitChoice::L2);
+                 max_num_peels, PursuitChoice::L2);
   if (A_minus_B_size == 0) dconf_alis.lb = 0;
   if (B_minus_A_size == 0) dconf_bela.ub = 0;
   if (force_pursue_l1) {
@@ -453,7 +466,7 @@ int main(int argc, char* argv[]) {
   DoroDecoder<DoroCodeType> decoder_alis(doro, setA, dconf_alis, max_recenter_rounds, &finger_hash, &resolving_hash),
     decoder_bela(doro, setB, dconf_bela, max_recenter_rounds, &finger_hash, &resolving_hash);
   StopWatch sw;
-  int comm_rounds = 0, actual_comm_rounds = 0;
+  int comm_rounds = 0, actual_comm_rounds = 0, round_in_resolve = 0;
   bool success = false;
 
   if (resolving_round < 0) {
@@ -523,13 +536,16 @@ int main(int argc, char* argv[]) {
         decoder_alis.enter_resolving();
         decoder_bela.enter_resolving();
         config["round entering resolving"] = actual_comm_rounds;
-      } else if (!decoder.has_new_elements()) {
+      } 
+      if (!decoder.has_new_elements() && round_in_resolve >= 2) {
         status = Status::Finished;
       }
+      ++round_in_resolve;
     }
     if (status == Status::Finished || comm_rounds == max_comm_rounds - 1) {
       // final IBLT stage.
       if (!doro.empty()) {
+        cout << "Doro failed. Fall back to IBLT." << endl;
         int estimated_diff = sample_mean_variance(doro.code()).second * doro.code().size() * iblt_element_factor + iblt_element_margin;
         config["estimated diff"] = estimated_diff;
         IBLT<IndexType> iblt(estimated_diff, sizeof(IndexType));

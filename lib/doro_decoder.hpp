@@ -4,6 +4,7 @@
 #include "libONIAK/oniakHash/ohash.h"
 #include "libONIAK/oniakMath/orange.h"
 
+#include <cstdint>
 #include <doro/doro.hpp>
 #include <doro/iblt.h>
 #include <algorithm>
@@ -70,9 +71,13 @@ namespace Doro {
         void peel_until_empty() {
             while (!priority_queue_.empty()) {
                 auto [strength, element] = priority_queue_.top();
-                new_elements_.insert(element);
-
                 ArrType delta = strength_to_delta(element, strength);
+                if (delta == 0) {
+                    priority_queue_.pop();
+                    continue;
+                }
+                new_elements_.insert(element);
+                
                 code_->peel(element, delta);
                 auto cur_iter = result_.find(element);
                 ArrType cur_element_value = (cur_iter != result_.end()) ? cur_iter->second : 0;
@@ -83,12 +88,12 @@ namespace Doro {
                 for (auto [index, sign] : all_hashes) {
                     notify_neighbors(index, -sign * delta);  // minus because the counter is reduced by delta
                 }
-                update_neighbor_strengths(element, /*append53*/ true);
-
+                update_neighbor_strengths(element, /*append_53*/ true);
+                //config_->verbose = true;
                 if (config_->verbose) {
                     std::cout << std::format("power: {}, element: {}, cur_element_value: {}, delta: {}\n",
                         strength, element, cur_element_value, delta);
-                    code_->show_result();
+                    code_->print_key(element);
                 }
             }
         }
@@ -226,7 +231,7 @@ namespace Doro {
             for (const IndexType& element : *setA_) {
                 // elements that are assumed not to be in result
                 if (!(result_.contains(element) && result_.at(element) != 0)) {
-                    iblt.insert(static_cast<uint64_t>(element), to_binary_vector(element));
+                    iblt.insert(element, to_binary_vector(element));
                 }
             }
         }
@@ -246,14 +251,13 @@ namespace Doro {
             ArrType my_value = (config_->ub > 0) ? config_->ub : config_->lb;
             // negative entries are my extra ones
             for (const auto& [key, value] : negative) {
-                IndexType element = from_binary_vector<IndexType>(value);
                 // special case, if we have no error, it must be from the other side.
                 if (my_value == 0) {
-                    other_result.push_back(element);
+                    other_result.push_back(key);
                 } else {
                     // here, doro is not updated, since we no longer attempt to peel them.
-                    result_[element] = my_value;
-                    new_elements_.insert(element);
+                    result_[key] = my_value;
+                    new_elements_.insert(key);
                 }
             }  // these new elements still may collide with those in the other party.
             add_unresolved_elements();
@@ -261,11 +265,10 @@ namespace Doro {
             // positive entries are the other's extra ones
 
             for (const auto& [key, value] : positive) {
-                IndexType element = from_binary_vector<IndexType>(value);
-                if (setA_->contains(element)) {  // false positive is at my side
-                    result_[element] = 0;
+                if (setA_->contains(key)) {  // false positive is at my side
+                    result_[key] = 0;
                 } else
-                    other_result.push_back(element);
+                    other_result.push_back(key);
             }
             return other_result;
         }

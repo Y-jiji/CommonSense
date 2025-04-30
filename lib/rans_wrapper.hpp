@@ -181,9 +181,11 @@ public:
   }
 
   std::vector<T> decode(const RansCode& code) const {
-    RansState rans;
+    RansState rans = 0;
     const uint8_t* ptr = code.data();
-    RansDecInit(&rans, &ptr);
+    if (!code.default_mode_) {
+      RansDecInit(&rans, &ptr);
+    }
 
     std::vector<T> result;
     auto extra_index = code.extra_index_.end();

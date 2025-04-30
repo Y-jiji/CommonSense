@@ -115,7 +115,7 @@ bool IBLT<K>::listEntries(std::unordered_map<K, std::vector<uint8_t>>& positive,
       if (entry.count == 1) {
         positive[entry.keySum] = entry.valueSum;
       } else if (entry.count == -1) {
-        positive[entry.keySum] = entry.valueSum;
+        negative[entry.keySum] = entry.valueSum;
       } else {
         exit(-1);
       }

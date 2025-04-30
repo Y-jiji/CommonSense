@@ -130,7 +130,7 @@
   "C_Cpp.errorSquiggles": "enabled",
   "cmake.debugConfig": {
     "args": [
-      "${workspaceFolder}/config/threshold2.json"
+      "${workspaceFolder}/config/geth_dev.json"
     ]
   }
 }
