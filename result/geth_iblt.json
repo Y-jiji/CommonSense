@@ -1,0 +1,13 @@
+{
+    "A path": "data/geth/state-a.txt",
+    "B path": "data/geth/state-b.txt",
+    "Intersect path": "data/geth/state-intersect.txt",
+    "iblt total cost a to b": 304795904,
+    "iblt total cost b to a": 100789328.21167442,
+    "peak memory": "VmPeak:\t167340976 kB\n",
+    "result filename": "result/geth_iblt.json",
+    "root path": "/media/gtnetuser/Dell/CDMA",
+    "seed": 43,
+    "success": true,
+    "time": 2645.627324202
+}

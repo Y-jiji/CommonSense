@@ -74,6 +74,11 @@ auto load_dataset_k256_or_k32(const nlohmann::json& config) {
         setA_minus_B.erase(v);
         setB_minus_A.erase(v);
       }
+      std::cout << "A size: " << A_size << std::endl;
+      std::cout << "B size: " << B_size << std::endl;
+      std::cout << "A minus B size: " << A_minus_B_size << std::endl;
+      std::cout << "B minus A size: " << B_minus_A_size << std::endl;
+      std::cout << "A intersect B size: " << setIntersect.size() << std::endl;
       return std::make_tuple(setA, setB, setA_minus_B, setB_minus_A,
                             A_minus_B_size, B_minus_A_size, setIntersect.size());
     } else {
