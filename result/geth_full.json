@@ -1,0 +1,70 @@
+{
+    "A intersect B remaining": [
+        20,
+        0,
+        0
+    ],
+    "A minus B remaining": [
+        15,
+        0,
+        0
+    ],
+    "A path": "/media/mydrive/CDMA/data/geth/state-a.txt",
+    "B minus A remaining": [
+        390,
+        390,
+        0
+    ],
+    "B path": "/media/mydrive/CDMA/data/geth/state-b.txt",
+    "Intersect path": "/media/mydrive/CDMA/data/geth/state-intersect.txt",
+    "comm costs": [
+        88649453.0,
+        8310962.0,
+        45272.0
+    ],
+    "communication rounds": 4,
+    "counting": true,
+    "d": 43000000,
+    "doro costs": [
+        88649453.0,
+        61537.0,
+        42113.0
+    ],
+    "finger costs": [
+        0,
+        8249425.0,
+        1457.0
+    ],
+    "k": 7,
+    "num peels": [
+        3700510,
+        3700585,
+        3700975
+    ],
+    "number of corrected errors": 131384,
+    "number of failed blocks": 7,
+    "number of recenters": 395,
+    "resolving costs": [
+        0,
+        0,
+        1702
+    ],
+    "resolving round": 0,
+    "result filename": "/media/mydrive/CDMA/result/geth_full.json",
+    "root path": "/media/gtnetuser/Dell/CDMA",
+    "round entering resolving": 1,
+    "seed": 43,
+    "success": true,
+    "theoretical entropy costs": [
+        62158272.68343094,
+        47992.27457718948,
+        42003.22671351811
+    ],
+    "time": [
+        3488.606841613,
+        5276.265423428,
+        6200.7786307589995
+    ],
+    "total communication cost": 97005687.0,
+    "total theoretical entropy cost": 62248268.18472165
+}

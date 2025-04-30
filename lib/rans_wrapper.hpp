@@ -35,6 +35,12 @@ public:
   }
   // raw codes not containing extra data.
   auto code_view() const { return std::views::all(code_) | std::views::drop(offset_); }
+  
+  void clear() {
+    code_.clear();
+    extra_.clear();
+    extra_index_.clear();
+  }
 
 private:
   uint8_t* resize_if_full() {

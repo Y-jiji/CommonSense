@@ -2,10 +2,11 @@
   "root path": "/media/gtnetuser/Dell/CDMA",
   "seed": 43,
   "k": 7,
-  "d": 40000000,
+  "d": 43000000,
   "counting": true,
   "A path": "/media/mydrive/CDMA/data/geth/state-a.txt",
   "B path": "/media/mydrive/CDMA/data/geth/state-b.txt",
   "Intersect path": "/media/mydrive/CDMA/data/geth/state-intersect.txt",
+  "resolving round": 0,
   "result filename": "/media/mydrive/CDMA/result/geth_full.json"
 }

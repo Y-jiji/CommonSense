@@ -366,6 +366,7 @@ int main(int argc, char* argv[]) {
     parity_bits.push_back(bch.encode(bch_data, /*bit-by-bit*/ true));
     for_each(bch_data.begin(), bch_data.end(), [](uint8_t& x) { x >>= 1; });
   }
+  bch_data.clear();
 
   size_t total_bch_sizes = accumulate(parity_bits.begin(), parity_bits.end(), 0,
     [](size_t sum, const auto& vec) { return sum + vec.size(); });
@@ -377,6 +378,7 @@ int main(int argc, char* argv[]) {
   DEBUG_VECTOR_EQUAL(first_round_decompressed_code, first_round_code.code());
   double first_round_cost = first_round_compressed_code.size() + total_bch_sizes;
   first_round_code.code() = std::move(first_round_decompressed_code);
+  first_round_compressed_code.clear();
 
   doro.encode(Bela_coef);
   auto doro_value = doro.values();
@@ -397,6 +399,7 @@ int main(int argc, char* argv[]) {
     CounterType alis_val = val - diff; // Guess of original code by Alis.
     data_decode.push_back(get_bch_data(alis_val, interval_size));
   }
+  first_round_code.reset();
   int num_failed_blocks = 0, num_errors_found = 0;
   for (auto [i, bch] : views::enumerate(bch_wrappers)) {
     auto bch_param = auto_parameter.bch[i];
@@ -416,6 +419,8 @@ int main(int argc, char* argv[]) {
   assert(diff_vec.size() == doro.code().size());
   // We only look at the difference from this moment on.
   doro.code() = std::move(diff_vec);
+  parity_bits.clear();
+  data_decode.clear();
 
   double lambda = static_cast<double>(A_minus_B_size) * k / d;
   auto A_minus_B_map = get_pmf(lambda, d, counting);
@@ -499,6 +504,7 @@ int main(int argc, char* argv[]) {
     double skellam_entropy = entropy(frequency_count(doro.code()));
     double theoretical_entropy = skellam_entropy * d;
     doro_cost = doro_compressed_code.size() + 64;
+    doro_compressed_code.clear();
     // 8 bytes to transmit two Skellam parameters in float.
     config["theoretical entropy costs"].push_back(theoretical_entropy);
     config["doro costs"].push_back(doro_cost);

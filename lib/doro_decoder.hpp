@@ -82,6 +82,9 @@ namespace Doro {
                 auto cur_iter = result_.find(element);
                 ArrType cur_element_value = (cur_iter != result_.end()) ? cur_iter->second : 0;
                 result_[element] = cur_element_value + delta;
+                if (result_[element] == 0) {
+                    result_.erase(element);
+                }
 
                 affected_neighbors_.clear();
                 auto all_hashes = code_->hash_all(element);
@@ -128,6 +131,7 @@ namespace Doro {
             if (collision_resolving_ && finger_hash_ != nullptr && resolving_hash_ != nullptr) {
                 add_unresolved_elements();
             }
+            priority_queue_.clear();
             return code_->num_peels();
         }
 
@@ -183,8 +187,8 @@ namespace Doro {
                         ++num_collisions;
                         ArrType cur_value = result_.at(element);
                         ArrType other_value = other.result_.at(other_element);
-                        result_[element] = 0;
-                        other.result_[element] = 0;
+                        result_.erase(element);
+                        other.result_.erase(element);
                         code_->peel(element, -cur_value);
                         other.code_->peel(other_element, -other_value);
                         break;
@@ -209,7 +213,7 @@ namespace Doro {
                 if (strength >= 3) {
                     code_->peel(cur, -val);
                     code_->peel(other, val);
-                    result_[cur] = 0;
+                    result_.erase(cur);
                     result_[other] = val;
                     new_elements_.insert(other);  // what if other is already decoded by the other party?
 
@@ -266,7 +270,7 @@ namespace Doro {
 
             for (const auto& [key, value] : positive) {
                 if (setA_->contains(key)) {  // false positive is at my side
-                    result_[key] = 0;
+                    result_.erase(key);
                 } else
                     other_result.push_back(key);
             }
@@ -412,7 +416,7 @@ namespace Doro {
 
         void add_unresolved_elements() {
             for (auto key : new_elements_) {
-                if (std::abs(result_.at(key)) > 1e-6) {
+                if (result_.contains(key) && std::abs(result_.at(key)) > 1e-6) {
                     int finger1 = finger_hash_->hash_in_range(key);
                     if (fingerprints_.contains(finger1)) {
                         uint64_t finger2 = resolving_hash_->hash64(key);

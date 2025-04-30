@@ -149,11 +149,8 @@ public:
   }
 
   void reset() {
-    arr_.assign(size(), 0);
-    num_peels_ = 0;
-    num_correct_peels_ = 0;
-    num_recenters_ = 0;
-    values_->clear();
+    arr_.clear();
+    values_.reset();
   }
 
   int size() const {
