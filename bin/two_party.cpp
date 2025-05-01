@@ -366,7 +366,7 @@ int main(int argc, char* argv[]) {
     parity_bits.push_back(bch.encode(bch_data, /*bit-by-bit*/ true));
     for_each(bch_data.begin(), bch_data.end(), [](uint8_t& x) { x >>= 1; });
   }
-  bch_data.clear();
+  bch_data = {};
 
   size_t total_bch_sizes = accumulate(parity_bits.begin(), parity_bits.end(), 0,
     [](size_t sum, const auto& vec) { return sum + vec.size(); });
@@ -419,8 +419,8 @@ int main(int argc, char* argv[]) {
   assert(diff_vec.size() == doro.code().size());
   // We only look at the difference from this moment on.
   doro.code() = std::move(diff_vec);
-  parity_bits.clear();
-  data_decode.clear();
+  parity_bits = {};
+  data_decode = {};
 
   double lambda = static_cast<double>(A_minus_B_size) * k / d;
   auto A_minus_B_map = get_pmf(lambda, d, counting);

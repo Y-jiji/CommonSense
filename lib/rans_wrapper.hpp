@@ -37,9 +37,9 @@ public:
   auto code_view() const { return std::views::all(code_) | std::views::drop(offset_); }
   
   void clear() {
-    code_.clear();
-    extra_.clear();
-    extra_index_.clear();
+    code_ = {};
+    extra_ = {};
+    extra_index_ = {};
   }
 
 private:
