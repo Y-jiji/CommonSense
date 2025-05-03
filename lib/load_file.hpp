@@ -53,7 +53,7 @@ std::vector<std::bitset<256>> load(const std::string &path) {
 }
 
 template<typename K>
-auto load_dataset_k256_or_k32(const nlohmann::json& config) {
+auto load_dataset_k256_or_k32(const nlohmann::json& config, uint64_t* rng_state = nullptr) {
   if (config.contains("A path") && config.contains("B path") &&
       config.contains("Intersect path")) {
     if constexpr (std::is_same<K, ONIAK::VeryLargeInt<256>>()) {
@@ -112,7 +112,11 @@ auto load_dataset_k256_or_k32(const nlohmann::json& config) {
 
     mt19937 rng(seed);
     auto rand_vec = ONIAK::random_nonrepetitive<K>(A_union_B_size, rng);
-
+    if (rng_state) {
+      for (auto& v : rand_vec) {
+        *rng_state ^= static_cast<uint64_t>(v);
+      }
+    }
     // Extract A, B, A - B, B - A
     unordered_set<K> setA(rand_vec.begin(), rand_vec.begin() + A_size);
     unordered_set<K> setB(rand_vec.begin() + A_minus_B_size,

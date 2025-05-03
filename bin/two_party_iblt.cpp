@@ -72,7 +72,6 @@ int main(int argc, char* argv[]) {
     A_intersect_B_size] = load_dataset_k256_or_k32<IndexType>(config);
   std::cout << "A minus B: " << A_minus_B_size << std::endl;
   std::cout << "B minus A: " << B_minus_A_size << std::endl;
-
   //                   //
   // Set Reconcilation //
   //                   //
@@ -175,7 +174,6 @@ int main(int argc, char* argv[]) {
   config["iblt total cost b to a"] = transmitted_size_B_to_A;
   config["success"] = success;
   config["time"] = sw.peek();
-
 
   FILE* file = fopen("/proc/self/status", "r");
   char line[128];

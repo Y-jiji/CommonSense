@@ -3,8 +3,8 @@
     "ROOT/build/bin/two_party_i64",
     "JSON"
   ],
-  "root path": "/media/gtnetuser/Dell/CDMA",
-  "max process": 12,
+  "root path": "/media/mydrive/CDMA",
+  "max process": 30,
   "seed": [
     "ITER_RANDOM",
     10000

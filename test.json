@@ -1,0 +1,58 @@
+{
+    "A intersect B remaining": [
+        0
+    ],
+    "A minus B remaining": [
+        0
+    ],
+    "A minus B size": 0,
+    "A size": 30000,
+    "B minus A remaining": [
+        0
+    ],
+    "B size": 30850,
+    "comm costs": [
+        16248.0
+    ],
+    "communication rounds": 1,
+    "counting": true,
+    "d": 8500,
+    "debug": false,
+    "doro costs": [
+        16248.0
+    ],
+    "finger costs": [
+        0
+    ],
+    "k": 5,
+    "max comm rounds": 10,
+    "max num peels": 20000,
+    "max process": 30,
+    "max rounds": 3,
+    "num peels": [
+        918
+    ],
+    "number of corrected errors": 127,
+    "number of failed blocks": 0,
+    "number of recenters": 0,
+    "resolving costs": [
+        0
+    ],
+    "result filename": "test.json",
+    "rng state": 706005952626288469,
+    "root path": "/media/mydrive/CDMA",
+    "script": [
+        "ROOT/build/bin/doro",
+        "JSON"
+    ],
+    "seed": 2845347721,
+    "success": true,
+    "theoretical entropy costs": [
+        11202.527708149479
+    ],
+    "time": [
+        0.03218607
+    ],
+    "total communication cost": 16248.0,
+    "total theoretical entropy cost": 11202.527708149479
+}

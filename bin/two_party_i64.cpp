@@ -290,8 +290,11 @@ int main(int argc, char* argv[]) {
   size_t seed = 0;
   if (config.contains("seed")) seed = config.at("seed");
 
-  auto [setA, setB, setA_minus_B, setB_minus_A, A_minus_B_size, B_minus_A_size, A_intersect_B_size] = load_dataset_k256_or_k32<IndexTypeU64>(config);
+  uint64_t rng_state = 0;
+  auto [setA, setB, setA_minus_B, setB_minus_A, A_minus_B_size, B_minus_A_size, A_intersect_B_size] = 
+      load_dataset_k256_or_k32<IndexTypeU64>(config, &rng_state);
   auto B_size = setB.size();
+  config["rng state"] = rng_state;
 
   int k = config.at("k");
   int d = config.at("d");
@@ -477,6 +480,7 @@ int main(int argc, char* argv[]) {
     decoder_alis.enter_resolving();
     decoder_bela.enter_resolving();
   }
+  int round_in_resolve = 0;
 
   while (!doro.empty() && comm_rounds < max_comm_rounds && status != Status::Finished) {
     actual_comm_rounds = std::max(actual_comm_rounds, comm_rounds + 1);
@@ -540,13 +544,16 @@ int main(int argc, char* argv[]) {
         decoder_alis.enter_resolving();
         decoder_bela.enter_resolving();
         config["round entering resolving"] = actual_comm_rounds;
-      } else if (!decoder.has_new_elements()) {
+      }
+      if (!decoder.has_new_elements() && round_in_resolve >= 2) {
         status = Status::Finished;
       }
+      ++round_in_resolve;
     }
     if (status == Status::Finished || comm_rounds == max_comm_rounds - 1) {
       // final IBLT stage.
       if (!doro.empty()) {
+        cout << "Doro failed. Fall back to IBLT." << endl;
         int estimated_diff = sample_mean_variance(doro.code()).second * doro.code().size() * iblt_element_factor + iblt_element_margin;
         config["estimated diff"] = estimated_diff;
         IBLT<IndexTypeU64> iblt(estimated_diff, sizeof(IndexTypeU64));
