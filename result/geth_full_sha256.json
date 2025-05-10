@@ -1,0 +1,76 @@
+{
+    "A intersect B remaining": [
+        1,
+        0,
+        0
+    ],
+    "A minus B remaining": [
+        340292,
+        0,
+        0
+    ],
+    "A path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-3rd-state/state-22392874-sha256-sorted.txt",
+    "B minus A remaining": [
+        445,
+        445,
+        0
+    ],
+    "B path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-4th-state/state-22399992-sha256-sorted.txt",
+    "Intersect path": "/media/gtnetuser/HDD_16TB_ATLAS/state-22392874-intersect-22399992.txt",
+    "comm costs": [
+        72685037.0,
+        17628226.0,
+        3278998.0,
+        17818.0
+    ],
+    "communication rounds": 4,
+    "counting": true,
+    "d": 43000000,
+    "doro costs": [
+        72685037.0,
+        13486785.0,
+        48865.0,
+        97.0
+    ],
+    "finger costs": [
+        0,
+        4141441.0,
+        2733537.0,
+        17377.0
+    ],
+    "k": 7,
+    "num peels": [
+        569690,
+        909985,
+        910430
+    ],
+    "number of corrected errors": 223524,
+    "number of failed blocks": 5,
+    "number of recenters": 144,
+    "peak memory": "VmHWM:\t257284944 kB\n",
+    "resolving costs": [
+        0,
+        0,
+        496596,
+        344
+    ],
+    "resolving round": 0,
+    "result filename": "/media/mydrive/CDMA/result/geth_full_sha256.json",
+    "root path": "/media/gtnetuser/Dell/CDMA",
+    "round entering resolving": 1,
+    "seed": 43,
+    "success": true,
+    "theoretical entropy costs": [
+        31138682.60171818,
+        13467256.222594474,
+        47648.76238755709,
+        -0.0
+    ],
+    "time": [
+        1355.300362782,
+        3564.3025174840004,
+        4749.6452670300005
+    ],
+    "total communication cost": 93610079.0,
+    "total theoretical entropy cost": 44653587.586700216
+}

@@ -1,8 +1,8 @@
 {
   "root path": "/media/gtnetuser/Dell/CDMA",
   "seed": 43,
-  "A path": "data/geth/state-a.txt",
-  "B path": "data/geth/state-b.txt",
-  "Intersect path": "data/geth/state-intersect.txt",
-  "result filename": "result/geth_iblt.json"
+  "A path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-3rd-state/state-22392874-sha256-sorted.txt",
+  "B path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-4th-state/state-22399992-sha256-sorted.txt",
+  "Intersect path": "/media/gtnetuser/HDD_16TB_ATLAS/state-22392874-intersect-22399992.txt",
+  "result filename": "result/geth_iblt_sha256.json"
 }
