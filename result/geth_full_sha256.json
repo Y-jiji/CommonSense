@@ -1,58 +1,66 @@
 {
     "A intersect B remaining": [
-        1,
-        0,
+        32973,
+        31532,
+        9,
         0
     ],
     "A minus B remaining": [
         340292,
-        0,
+        2926,
+        2926,
         0
     ],
     "A path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-3rd-state/state-22392874-sha256-sorted.txt",
     "B minus A remaining": [
-        445,
-        445,
+        97002,
+        97002,
+        0,
         0
     ],
     "B path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-4th-state/state-22399992-sha256-sorted.txt",
     "Intersect path": "/media/gtnetuser/HDD_16TB_ATLAS/state-22392874-intersect-22399992.txt",
     "comm costs": [
-        72685037.0,
-        17628226.0,
-        3278998.0,
-        17818.0
+        24748729.0,
+        13736674.0,
+        7095991.0,
+        1266046.0,
+        48638.0
     ],
-    "communication rounds": 4,
+    "communication rounds": 5,
     "counting": true,
-    "d": 43000000,
+    "d": 10000000,
     "doro costs": [
-        72685037.0,
-        13486785.0,
-        48865.0,
+        24748729.0,
+        9968385.0,
+        3779873.0,
+        213809.0,
         97.0
     ],
     "finger costs": [
         0,
-        4141441.0,
-        2733537.0,
-        17377.0
+        3768289.0,
+        2727041.0,
+        947489.0,
+        43553.0
     ],
     "k": 7,
     "num peels": [
-        569690,
-        909985,
-        910430
+        584537,
+        931854,
+        1060899,
+        1063834
     ],
-    "number of corrected errors": 223524,
-    "number of failed blocks": 5,
-    "number of recenters": 144,
-    "peak memory": "VmHWM:\t257284944 kB\n",
+    "number of corrected errors": 76421,
+    "number of failed blocks": 0,
+    "number of recenters": 0,
+    "peak memory": "VmHWM:\t253537740 kB\n",
     "resolving costs": [
         0,
         0,
-        496596,
-        344
+        589077,
+        104748,
+        4988
     ],
     "resolving round": 0,
     "result filename": "/media/mydrive/CDMA/result/geth_full_sha256.json",
@@ -61,16 +69,18 @@
     "seed": 43,
     "success": true,
     "theoretical entropy costs": [
-        31138682.60171818,
-        13467256.222594474,
-        47648.76238755709,
+        16737569.056571618,
+        9934647.701062312,
+        3763819.389614033,
+        212691.9073109902,
         -0.0
     ],
     "time": [
-        1355.300362782,
-        3564.3025174840004,
-        4749.6452670300005
+        1909.881817645,
+        4276.529316065,
+        5455.714730763,
+        6028.4498724840005
     ],
-    "total communication cost": 93610079.0,
-    "total theoretical entropy cost": 44653587.586700216
+    "total communication cost": 46896078.0,
+    "total theoretical entropy cost": 30648728.054558955
 }

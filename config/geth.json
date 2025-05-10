@@ -2,7 +2,7 @@
   "root path": "/media/gtnetuser/Dell/CDMA",
   "seed": 43,
   "k": 7,
-  "d": 43000000,
+  "d": 10000000,
   "counting": true,
   "A path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-3rd-state/state-22392874-sha256-sorted.txt",
   "B path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-4th-state/state-22399992-sha256-sorted.txt",

@@ -185,12 +185,16 @@ namespace Doro {
                         // CAUTION: if there is any collision with finger2, then set reconciliation would fail.
                         assert(element == other_element);
                         ++num_collisions;
-                        ArrType cur_value = result_.at(element);
-                        ArrType other_value = other.result_.at(other_element);
-                        result_.erase(element);
-                        other.result_.erase(element);
-                        code_->peel(element, -cur_value);
-                        other.code_->peel(other_element, -other_value);
+                        if (result_.contains(element)) {
+                          ArrType cur_value = result_.at(element);
+                          result_.erase(element);
+                          code_->peel(element, -cur_value);
+                        }
+                        if (other.result_.contains(other_element)) {
+                          ArrType other_value = other.result_.at(other_element);
+                          other.result_.erase(element);
+                          other.code_->peel(other_element, -other_value);
+                        }
                         break;
                     } // else accept the change, nothing is needed
                 }
