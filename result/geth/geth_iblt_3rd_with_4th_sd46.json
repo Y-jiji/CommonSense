@@ -1,0 +1,13 @@
+{
+    "A path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-3rd-state/state-22392874-sha256-sorted.txt",
+    "B path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-4th-state/state-22399992-sha256-sorted.txt",
+    "Intersect path": "/media/gtnetuser/HDD_16TB_ATLAS/state-22392874-intersect-22399992.txt",
+    "iblt total cost a to b": 379171904,
+    "iblt total cost b to a": 9568900.7016405,
+    "peak memory": "VmHWM:\t148166428 kB\n",
+    "result filename": "/media/mydrive/CDMA/result/geth_iblt_3rd_with_4th_sd46.json",
+    "root path": "/media/gtnetuser/Dell/CDMA",
+    "seed": 46,
+    "success": true,
+    "time": 2686.267041149
+}

@@ -1,0 +1,86 @@
+{
+    "A intersect B remaining": [
+        1758,
+        1524,
+        0,
+        0
+    ],
+    "A minus B remaining": [
+        5636348,
+        1497,
+        1497,
+        0
+    ],
+    "A path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-2nd-state/state-22020359-sha256-sorted.txt",
+    "B minus A remaining": [
+        500186,
+        500186,
+        0,
+        0
+    ],
+    "B path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-4th-state/state-22399992-sha256-sorted.txt",
+    "Intersect path": "/media/gtnetuser/HDD_16TB_ATLAS/state-22020359-intersect-22399992.txt",
+    "comm costs": [
+        567586797.0,
+        284187922.0,
+        86868915.0,
+        6416434.0,
+        62294.0
+    ],
+    "communication rounds": 5,
+    "counting": true,
+    "d": 233000000,
+    "doro costs": [
+        567586797.0,
+        171828161.0,
+        26615969.0,
+        167457.0,
+        97.0
+    ],
+    "finger costs": [
+        0,
+        112359761.0,
+        47561185.0,
+        5867777.0,
+        59297.0
+    ],
+    "k": 7,
+    "num peels": [
+        16542480,
+        22178393,
+        22680103,
+        22681600
+    ],
+    "number of corrected errors": 4901300,
+    "number of failed blocks": 56,
+    "number of recenters": 1511,
+    "peak memory": "VmHWM:\t253266952 kB\n",
+    "resolving costs": [
+        0,
+        0,
+        12691761,
+        381200,
+        2900
+    ],
+    "resolving round": 0,
+    "result filename": "/media/mydrive/CDMA/result/geth_full_sha256_alt.json",
+    "root path": "/media/gtnetuser/Dell/CDMA",
+    "round entering resolving": 1,
+    "seed": 43,
+    "success": true,
+    "theoretical entropy costs": [
+        387877710.5091423,
+        171303882.39505038,
+        26294616.268921435,
+        166440.09350254777,
+        -0.0
+    ],
+    "time": [
+        3487.142688594,
+        7155.535232845,
+        9078.604441645999,
+        10004.078588858
+    ],
+    "total communication cost": 945122362.0,
+    "total theoretical entropy cost": 585642649.2666166
+}

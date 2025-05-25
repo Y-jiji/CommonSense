@@ -1,0 +1,86 @@
+{
+    "A intersect B remaining": [
+        33088,
+        31626,
+        5,
+        0
+    ],
+    "A minus B remaining": [
+        340292,
+        3177,
+        3177,
+        0
+    ],
+    "A path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-3rd-state/state-22392874-sha256-sorted.txt",
+    "B minus A remaining": [
+        97543,
+        97543,
+        0,
+        0
+    ],
+    "B path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-4th-state/state-22399992-sha256-sorted.txt",
+    "Intersect path": "/media/gtnetuser/HDD_16TB_ATLAS/state-22392874-intersect-22399992.txt",
+    "comm costs": [
+        24748649.0,
+        13739346.0,
+        7120915.0,
+        1293891.0,
+        51370.0
+    ],
+    "communication rounds": 5,
+    "counting": true,
+    "d": 10000000,
+    "doro costs": [
+        24748649.0,
+        9973057.0,
+        3795249.0,
+        228993.0,
+        97.0
+    ],
+    "finger costs": [
+        0,
+        3766289.0,
+        2726497.0,
+        952929.0,
+        46801.0
+    ],
+    "k": 7,
+    "num peels": [
+        582731,
+        930184,
+        1059958,
+        1063140
+    ],
+    "number of corrected errors": 76509,
+    "number of failed blocks": 0,
+    "number of recenters": 0,
+    "peak memory": "VmHWM:\t258477064 kB\n",
+    "resolving costs": [
+        0,
+        0,
+        599169,
+        111969,
+        4472
+    ],
+    "resolving round": 0,
+    "result filename": "/media/mydrive/CDMA/result/geth_full_3rd_with_4th_sd46.json",
+    "root path": "/media/gtnetuser/Dell/CDMA",
+    "round entering resolving": 1,
+    "seed": 46,
+    "success": true,
+    "theoretical entropy costs": [
+        16737569.056571618,
+        9939280.130482797,
+        3779016.282458124,
+        228193.19115898336,
+        -0.0
+    ],
+    "time": [
+        1921.943803287,
+        4306.880566015,
+        5492.556978603,
+        6074.903525716
+    ],
+    "total communication cost": 46954171.0,
+    "total theoretical entropy cost": 30684058.66067152
+}

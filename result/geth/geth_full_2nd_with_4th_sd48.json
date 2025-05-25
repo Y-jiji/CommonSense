@@ -1,0 +1,86 @@
+{
+    "A intersect B remaining": [
+        1757,
+        1544,
+        0,
+        0
+    ],
+    "A minus B remaining": [
+        5636348,
+        1409,
+        1409,
+        0
+    ],
+    "A path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-2nd-state/state-22020359-sha256-sorted.txt",
+    "B minus A remaining": [
+        499639,
+        499639,
+        0,
+        0
+    ],
+    "B path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-4th-state/state-22399992-sha256-sorted.txt",
+    "Intersect path": "/media/gtnetuser/HDD_16TB_ATLAS/state-22020359-intersect-22399992.txt",
+    "comm costs": [
+        567586797.0,
+        284170402.0,
+        86765629.0,
+        6403394.0,
+        58874.0
+    ],
+    "communication rounds": 5,
+    "counting": true,
+    "d": 233000000,
+    "doro costs": [
+        567586797.0,
+        171809089.0,
+        26587217.0,
+        158209.0,
+        97.0
+    ],
+    "finger costs": [
+        0,
+        112361313.0,
+        47562401.0,
+        5858785.0,
+        55977.0
+    ],
+    "k": 7,
+    "num peels": [
+        16542066,
+        22178076,
+        22679259,
+        22680668
+    ],
+    "number of corrected errors": 4902732,
+    "number of failed blocks": 50,
+    "number of recenters": 1335,
+    "peak memory": "VmHWM:\t258174896 kB\n",
+    "resolving costs": [
+        0,
+        0,
+        12616011,
+        386400,
+        2800
+    ],
+    "resolving round": 0,
+    "result filename": "/media/mydrive/CDMA/result/geth_full_2nd_with_4th_sd48.json",
+    "root path": "/media/gtnetuser/Dell/CDMA",
+    "round entering resolving": 1,
+    "seed": 48,
+    "success": true,
+    "theoretical entropy costs": [
+        387877710.5091423,
+        171281233.51417077,
+        26272920.12127679,
+        157518.1106599326,
+        -0.0
+    ],
+    "time": [
+        3489.55415795,
+        7162.540541329,
+        9012.747266983999,
+        9933.996831519999
+    ],
+    "total communication cost": 944985096.0,
+    "total theoretical entropy cost": 585589382.2552497
+}

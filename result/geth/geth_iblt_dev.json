@@ -1,0 +1,12 @@
+{
+    "A path": "data/geth/state-a-dev.txt",
+    "B path": "data/geth/state-b-dev.txt",
+    "Intersect path": "data/geth/state-intersect-dev.txt",
+    "iblt total cost a to b": 336384,
+    "iblt total cost b to a": 42048,
+    "result filename": "result/geth_iblt_dev.json",
+    "root path": "/media/gtnetuser/Dell/CDMA",
+    "round": 1,
+    "seed": 113511423,
+    "success": true
+}

@@ -1,0 +1,86 @@
+{
+    "A intersect B remaining": [
+        32965,
+        31471,
+        5,
+        0
+    ],
+    "A minus B remaining": [
+        340292,
+        2997,
+        2997,
+        0
+    ],
+    "A path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-3rd-state/state-22392874-sha256-sorted.txt",
+    "B minus A remaining": [
+        97177,
+        97177,
+        0,
+        0
+    ],
+    "B path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-4th-state/state-22399992-sha256-sorted.txt",
+    "Intersect path": "/media/gtnetuser/HDD_16TB_ATLAS/state-22392874-intersect-22399992.txt",
+    "comm costs": [
+        24748761.0,
+        13739826.0,
+        7106485.0,
+        1268238.0,
+        48334.0
+    ],
+    "communication rounds": 5,
+    "counting": true,
+    "d": 10000000,
+    "doro costs": [
+        24748761.0,
+        9973073.0,
+        3787329.0,
+        217953.0,
+        97.0
+    ],
+    "finger costs": [
+        0,
+        3766753.0,
+        2727121.0,
+        948321.0,
+        44625.0
+    ],
+    "k": 7,
+    "num peels": [
+        584880,
+        932163,
+        1061280,
+        1064282
+    ],
+    "number of corrected errors": 76990,
+    "number of failed blocks": 1,
+    "number of recenters": 4,
+    "peak memory": "VmHWM:\t257400548 kB\n",
+    "resolving costs": [
+        0,
+        0,
+        592035,
+        101964,
+        3612
+    ],
+    "resolving round": 0,
+    "result filename": "/media/mydrive/CDMA/result/geth_full_3rd_with_4th_sd48.json",
+    "root path": "/media/gtnetuser/Dell/CDMA",
+    "round entering resolving": 1,
+    "seed": 48,
+    "success": true,
+    "theoretical entropy costs": [
+        16737569.056571618,
+        9939582.212160887,
+        3770962.636020367,
+        217048.7902252714,
+        -0.0
+    ],
+    "time": [
+        1924.195817323,
+        4322.3970510849995,
+        5513.817630441999,
+        6096.241170265999
+    ],
+    "total communication cost": 46911644.0,
+    "total theoretical entropy cost": 30665162.69497814
+}

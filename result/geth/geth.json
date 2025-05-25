@@ -1,0 +1,105 @@
+{
+    "A intersect B remaining": [
+        21,
+        33,
+        18,
+        6,
+        0,
+        0
+    ],
+    "A minus B remaining": [
+        146,
+        32,
+        32,
+        2,
+        2,
+        0
+    ],
+    "A path": "/media/mydrive/CDMA/data/geth/state-a-dev.txt",
+    "B minus A remaining": [
+        69,
+        69,
+        12,
+        12,
+        0,
+        0
+    ],
+    "B path": "/media/mydrive/CDMA/data/geth/state-b-dev.txt",
+    "Intersect path": "/media/mydrive/CDMA/data/geth/state-intersect-dev.txt",
+    "comm costs": [
+        5989.0,
+        4114.0,
+        3074.0,
+        1938.0,
+        1106.0,
+        506.0,
+        230.0
+    ],
+    "communication rounds": 7,
+    "counting": true,
+    "d": 2000,
+    "debug": false,
+    "doro costs": [
+        5989.0,
+        3281.0,
+        2049.0,
+        1377.0,
+        769.0,
+        209.0,
+        97.0
+    ],
+    "finger costs": [
+        0,
+        833.0,
+        1025.0,
+        561.0,
+        337.0,
+        193.0,
+        81.0
+    ],
+    "k": 7,
+    "num peels": [
+        98,
+        232,
+        308,
+        352,
+        370,
+        372
+    ],
+    "number of corrected errors": 43,
+    "number of failed blocks": 0,
+    "number of recenters": 0,
+    "resolving costs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        104,
+        52
+    ],
+    "result filename": "/media/mydrive/CDMA/result/geth.json",
+    "root path": "/media/gtnetuser/Dell/CDMA",
+    "round entering resolving": 4,
+    "seed": 43,
+    "success": true,
+    "theoretical entropy costs": [
+        4065.5858798250756,
+        3177.77900556908,
+        1936.2055014173736,
+        1268.9948033042517,
+        677.643289162988,
+        120.34488406401712,
+        -0.0
+    ],
+    "time": [
+        0.015234117,
+        0.029823057,
+        0.036720016,
+        0.041838151000000004,
+        0.051678481000000005,
+        0.06091784000000001
+    ],
+    "total communication cost": 16957.0,
+    "total theoretical entropy cost": 11246.553363342786
+}

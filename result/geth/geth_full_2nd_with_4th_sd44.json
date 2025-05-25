@@ -1,0 +1,86 @@
+{
+    "A intersect B remaining": [
+        1760,
+        1513,
+        0,
+        0
+    ],
+    "A minus B remaining": [
+        5636348,
+        1444,
+        1444,
+        0
+    ],
+    "A path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-2nd-state/state-22020359-sha256-sorted.txt",
+    "B minus A remaining": [
+        499234,
+        499234,
+        0,
+        0
+    ],
+    "B path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-4th-state/state-22399992-sha256-sorted.txt",
+    "Intersect path": "/media/gtnetuser/HDD_16TB_ATLAS/state-22020359-intersect-22399992.txt",
+    "comm costs": [
+        567586797.0,
+        284168386.0,
+        86790670.0,
+        6402478.0,
+        59894.0
+    ],
+    "communication rounds": 5,
+    "counting": true,
+    "d": 233000000,
+    "doro costs": [
+        567586797.0,
+        171806177.0,
+        26567345.0,
+        161889.0,
+        97.0
+    ],
+    "finger costs": [
+        0,
+        112362209.0,
+        47562369.0,
+        5855489.0,
+        57497.0
+    ],
+    "k": 7,
+    "num peels": [
+        16542874,
+        22178883,
+        22679630,
+        22681074
+    ],
+    "number of corrected errors": 4903339,
+    "number of failed blocks": 52,
+    "number of recenters": 1381,
+    "peak memory": "VmHWM:\t257752332 kB\n",
+    "resolving costs": [
+        0,
+        0,
+        12660956,
+        385100,
+        2300
+    ],
+    "resolving round": 0,
+    "result filename": "/media/mydrive/CDMA/result/geth_full_2nd_with_4th_sd44.json",
+    "root path": "/media/gtnetuser/Dell/CDMA",
+    "round entering resolving": 1,
+    "seed": 44,
+    "success": true,
+    "theoretical entropy costs": [
+        387877710.5091423,
+        171279378.93664193,
+        26253622.317858662,
+        161073.0876391957,
+        -0.0
+    ],
+    "time": [
+        3494.121135252,
+        7172.547179965,
+        9007.827377270001,
+        9925.39206578
+    ],
+    "total communication cost": 945008225.0,
+    "total theoretical entropy cost": 585571784.8512821
+}

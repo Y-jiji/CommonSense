@@ -1,0 +1,86 @@
+{
+    "A intersect B remaining": [
+        1892,
+        1555,
+        0,
+        0
+    ],
+    "A minus B remaining": [
+        5636348,
+        1422,
+        1422,
+        0
+    ],
+    "A path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-2nd-state/state-22020359-sha256-sorted.txt",
+    "B minus A remaining": [
+        500979,
+        500979,
+        0,
+        0
+    ],
+    "B path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-4th-state/state-22399992-sha256-sorted.txt",
+    "Intersect path": "/media/gtnetuser/HDD_16TB_ATLAS/state-22020359-intersect-22399992.txt",
+    "comm costs": [
+        567586797.0,
+        284200226.0,
+        86798293.0,
+        6408662.0,
+        61274.0
+    ],
+    "communication rounds": 5,
+    "counting": true,
+    "d": 233000000,
+    "doro costs": [
+        567586797.0,
+        171846129.0,
+        26645905.0,
+        159601.0,
+        97.0
+    ],
+    "finger costs": [
+        0,
+        112354097.0,
+        47563041.0,
+        5874561.0,
+        56777.0
+    ],
+    "k": 7,
+    "num peels": [
+        16541549,
+        22177882,
+        22680416,
+        22681838
+    ],
+    "number of corrected errors": 4902502,
+    "number of failed blocks": 54,
+    "number of recenters": 1507,
+    "peak memory": "VmHWM:\t257965216 kB\n",
+    "resolving costs": [
+        0,
+        0,
+        12589347,
+        374500,
+        4400
+    ],
+    "resolving round": 0,
+    "result filename": "/media/mydrive/CDMA/result/geth_full_2nd_with_4th_sd47.json",
+    "root path": "/media/gtnetuser/Dell/CDMA",
+    "round entering resolving": 1,
+    "seed": 47,
+    "success": true,
+    "theoretical entropy costs": [
+        387877710.5091423,
+        171315908.66552567,
+        26328146.717646852,
+        158839.75301360368,
+        -0.0
+    ],
+    "time": [
+        3469.42715212,
+        7084.237864059,
+        8968.881297652,
+        9888.01744784
+    ],
+    "total communication cost": 945055252.0,
+    "total theoretical entropy cost": 585680605.6453284
+}
