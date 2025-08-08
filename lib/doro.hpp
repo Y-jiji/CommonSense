@@ -1,7 +1,7 @@
 #ifndef __DORO_HPP__
 #define __DORO_HPP__
 
-#include "libONIAK/oniakHash/ohash.h"
+#include "oniakHash/ohash.h"
 
 #include <algorithm>
 #include <cassert>

@@ -93,11 +93,11 @@ Git(
 )
 Git(
     SITE   "git@github.com"
-    USER    "Jeffery-Meng"
+    USER    "Y-jiji"
     REPO   "rans-fix"
     BRANCH "master"
     PIPELINE "INCLUDE" PUBLIC
-    INCLUDE_DIR "${CMAKE_BINARY_DIR}/3rd_party_download/Jeffery-Meng"
+    INCLUDE_DIR "${CMAKE_BINARY_DIR}/3rd_party_download/Y-jiji"
 )
 Git(
     SITE  "https://github.com"

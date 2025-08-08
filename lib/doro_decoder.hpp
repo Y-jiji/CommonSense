@@ -1,8 +1,8 @@
 #pragma once
 
-#include "libONIAK/oniakDataStructure/oupq.h"
-#include "libONIAK/oniakHash/ohash.h"
-#include "libONIAK/oniakMath/orange.h"
+#include "oniakDataStructure/oupq.h"
+#include "oniakHash/ohash.h"
+#include "oniakMath/orange.h"
 
 #include <cstdint>
 #include <doro/doro.hpp>

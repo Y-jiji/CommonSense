@@ -3,7 +3,7 @@
     "ROOT/build/bin/two_party",
     "JSON"
   ],
-  "root path": "/media/mydrive/CDMA",
+  "root path": "/home/tj-yang/Documents/common-sense",
   "max process": 30,
   "seed": [
     "ITER_RANDOM",

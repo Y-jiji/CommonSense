@@ -6,11 +6,11 @@
 #include <doro/rans_wrapper.hpp>
 
 #include "doro/key_types.hpp"
-#include "libONIAK/oniakDataStructure/ohist.h"
-#include "libONIAK/oniakDebug/odebug.h"
-#include "libONIAK/oniakMath/overylarge.h"
-#include "libONIAK/oniakRandom/orand.h"
-#include "libONIAK/oniakTimer/otime.h"
+#include "oniakDataStructure/ohist.h"
+#include "oniakDebug/odebug.h"
+#include "oniakMath/overylarge.h"
+#include "oniakRandom/orand.h"
+#include "oniakTimer/otime.h"
 #include "nlohmann/json.hpp"
 
 #include <doro/iblt.h>

@@ -1,6 +1,6 @@
 #pragma once
-#include "libONIAK/oniakMath/overylarge.h"
-#include "libONIAK/oniakRandom/orand.h"
+#include "oniakMath/overylarge.h"
+#include "oniakRandom/orand.h"
 #include "nlohmann/json.hpp"
 #include <array>
 #include <bitset>

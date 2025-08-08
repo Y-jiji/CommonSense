@@ -8,8 +8,8 @@
 #include <vector>
 #include <iostream>
 
-#include "libONIAK/oniakDataStructure/ohist.h"
-#include "libONIAK/oniakMath/ostats.h"
+#include "oniakDataStructure/ohist.h"
+#include "oniakMath/ostats.h"
 
 namespace Doro {
 constexpr double DoubleEpsilon = 1e-18;
