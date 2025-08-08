@@ -115,5 +115,8 @@ Git(
     INCLUDE_DIR "${CMAKE_BINARY_DIR}/3rd_party_download/Ten0"
 )
 
-message(STATUS "ONIAKLIB Path: $ENV{ONIAKLIB}")
-target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC $ENV{ONIAKLIB})
+# -- Specially treat libONIAK
+target_include_directories(
+    ${CMAKE_PROJECT_NAME}
+    PUBLIC libONIAK
+)

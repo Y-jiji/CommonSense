@@ -393,7 +393,7 @@ int main(int argc, char* argv[]) {
         doro_value->operator[](item) = -1;
     }
   }
-   
+
   vector<uint8_t> data_decode;
   vector<CounterType> diff_vec;
   for (auto [i, val] : views::enumerate(doro.code())) {

@@ -1,0 +1,8 @@
+{
+        "root path": "/media/gtnetuser/Dell/CDMA",
+        "seed": 48,
+        "A path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-2nd-state/state-22020359-sha256-sorted.txt",
+        "B path": "/media/gtnetuser/HDD_16TB_ATLAS/geth-4th-state/state-22399992-sha256-sorted.txt",
+        "Intersect path": "/media/gtnetuser/HDD_16TB_ATLAS/state-22020359-intersect-22399992.txt",
+        "result filename": "/media/mydrive/CDMA/result/geth_iblt_2nd_with_4th_sd48.json"
+    }
